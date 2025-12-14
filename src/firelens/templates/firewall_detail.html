@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ firewall_name }} - {% if vendor_type == 'fortinet' %}FortiGate Monitor{% elif vendor_type == 'cisco_firepower' %}Firepower Monitor{% else %}PAN-OS Monitor{% endif %}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="/static/js/chart.min.js"></script>
+    <script src="/static/js/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        /* Container width override for firewall detail page */
+        .container { max-width: 1800px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="breadcrumb">
+                <a href="/">← Back to Dashboard</a>
+            </div>
+            <div class="logo-title">
+                <img src="/static/img/firelens-transparent-logo-darkmode.png" alt="FireLens" class="header-logo">
+                <h1>{{ firewall_name }}</h1>
+            </div>
+            <p>{{ firewall_host }}</p>
+            {% if firewall_model or firewall_sw_version %}
+            <div class="firewall-info">
+                {% if firewall_model %}
+                <div class="info-badge">
+                    <span class="info-badge-label">Model:</span>
+                    <span class="info-badge-value">{{ firewall_model }}</span>
+                </div>
+                {% endif %}
+                {% if firewall_sw_version %}
+                <div class="info-badge">
+                    <span class="info-badge-label">Version:</span>
+                    <span class="info-badge-value">{{ firewall_sw_version }}</span>
+                </div>
+                {% endif %}
+                {% if firewall_family %}
+                <div class="info-badge">
+                    <span class="info-badge-label">Series:</span>
+                    <span class="info-badge-value">{% if vendor_type == 'palo_alto' %}PA-{% endif %}{{ firewall_family }}</span>
+                </div>
+                {% endif %}
+                {% if vendor_type %}
+                <div class="info-badge">
+                    <span class="info-badge-label">Vendor:</span>
+                    <span class="info-badge-value">{% if vendor_type == 'fortinet' %}Fortinet{% elif vendor_type == 'cisco_firepower' %}Cisco{% else %}Palo Alto{% endif %}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="header-actions">
+            <a href="/admin" class="admin-link" title="Admin Panel">⚙️ Admin</a>
+            <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Toggle dark mode">
+                <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="container container-wide">
+        <div class="controls">
+            <div class="control-group">
+                <label for="startDate">Start Date:</label>
+                <input type="date" id="startDate">
+            </div>
+            <div class="control-group">
+                <label for="startTime">Start Time:</label>
+                <input type="time" id="startTime">
+            </div>
+            <div class="control-group">
+                <label for="endDate">End Date:</label>
+                <input type="date" id="endDate">
+            </div>
+            <div class="control-group">
+                <label for="endTime">End Time:</label>
+                <input type="time" id="endTime">
+            </div>
+            <div class="control-group">
+                <label for="maxPoints">Max Points:</label>
+                <select id="maxPoints">
+                    <option value="100">100</option>
+                    <option value="500" selected>500</option>
+                    <option value="1000">1000</option>
+                    <option value="5000">5000</option>
+                    <option value="">All</option>
+                </select>
+            </div>
+            {% if vendor_type == 'palo_alto' or not vendor_type %}
+            <div class="control-group" id="dpCpuControlGroup">
+                <label for="cpuAggregation">DP CPU View:</label>
+                <select id="cpuAggregation">
+                    <option value="mean" selected>Mean (Average)</option>
+                    <option value="max">Max (Hottest Core)</option>
+                    <option value="p95">P95 (95th Percentile)</option>
+                </select>
+            </div>
+            {% endif %}
+            <button onclick="refreshData()">Update Charts</button>
+            <button onclick="downloadCSV()" style="background: #27ae60;">📥 Download CSV</button>
+            <div class="control-group">
+                <input type="checkbox" id="autoRefresh" checked>
+                <label for="autoRefresh">Auto Refresh (60s)</label>
+            </div>
+        </div>
+        
+        <div class="current-values" id="currentValues">
+            <!-- Current values will be populated by JavaScript -->
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card wide-metric-card">
+                <div class="metric-header">
+                    <span class="metric-title" id="interfaceChartTitle">🌐 Interface Bandwidth (Mbps)</span>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                        <div class="metric-toggle">
+                            <button class="toggle-btn active" onclick="toggleInterfaceView('rx')" id="if-rx">RX Only</button>
+                            <button class="toggle-btn" onclick="toggleInterfaceView('tx')" id="if-tx">TX Only</button>
+                            <button class="toggle-btn" onclick="toggleInterfaceView('both')" id="if-both">RX+TX</button>
+                            <button class="toggle-btn" onclick="toggleInterfaceView('total')" id="if-total">Total</button>
+                        </div>
+                        <div class="metric-toggle">
+                            <button class="toggle-btn active" onclick="toggleInterfaceUnit('mbps')" id="if-mbps">Mbps</button>
+                            <button class="toggle-btn" onclick="toggleInterfaceUnit('pps')" id="if-pps">PPS</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="interface-selector" id="interfaceSelector">
+                    <div class="interface-selector-header">
+                        <span>Select Interfaces to Monitor:</span>
+                        <div class="interface-selector-controls">
+                            <button class="select-all-btn" onclick="selectAllInterfaces()">Select All</button>
+                            <button class="select-none-btn" onclick="selectNoInterfaces()">Select None</button>
+                        </div>
+                    </div>
+                    <input type="text" class="interface-search" id="interfaceSearch" placeholder="Search interfaces..." onkeyup="filterInterfaces()">
+                    <div id="interfaceButtons">
+                        <!-- Interface buttons will be populated by JavaScript -->
+                    </div>
+                    <div class="interface-info" id="interfaceInfo">
+                        <!-- Interface information will be populated by JavaScript -->
+                    </div>
+                </div>
+                <div class="legend-container" id="interfaceLegend">
+                    <!-- Legend will be populated by JavaScript -->
+                </div>
+                <div class="chart-container">
+                    <canvas id="interfaceChart"></canvas>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">🖥️ CPU Usage</span>
+                    {% if vendor_type == 'palo_alto' or not vendor_type %}
+                    <div class="metric-toggle" id="cpuToggleButtons">
+                        <button class="toggle-btn active" onclick="toggleCpuView('mgmt')" id="cpu-mgmt">Mgmt</button>
+                        <button class="toggle-btn active" onclick="toggleCpuView('dp')" id="cpu-dp">Data Plane</button>
+                        <button class="toggle-btn" onclick="toggleCpuView('both')" id="cpu-both">Both</button>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="chart-container">
+                    <canvas id="cpuChart"></canvas>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">🔗 Session Statistics</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="sessionStatsChart"></canvas>
+                </div>
+            </div>
+
+            {% if vendor_type == 'palo_alto' or not vendor_type %}
+            <div class="metric-card" id="pbufCard">
+                <div class="metric-header">
+                    <span class="metric-title">📦 Packet Buffer</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="pbufChart"></canvas>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if vendor_type == 'fortinet' %}
+            <!-- Fortinet-specific metrics -->
+            <div class="metric-card" id="fortinetMetricsCard">
+                <div class="metric-header">
+                    <span class="metric-title">🔧 FortiGate Metrics</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="fortinetMetricsChart"></canvas>
+                </div>
+                <div class="vendor-metrics-summary" id="fortinetMetricsSummary">
+                    <div class="vendor-metric-item">
+                        <span class="vendor-metric-label">Memory Usage:</span>
+                        <span class="vendor-metric-value" id="fortinetMemory">--</span>
+                    </div>
+                    <div class="vendor-metric-item">
+                        <span class="vendor-metric-label">NPU Sessions:</span>
+                        <span class="vendor-metric-value" id="fortinetNpuSessions">--</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if vendor_type == 'cisco_firepower' %}
+            <!-- Cisco Firepower placeholder -->
+            <div class="metric-card" id="ciscoMetricsCard">
+                <div class="metric-header">
+                    <span class="metric-title">🔧 Firepower Metrics</span>
+                </div>
+                <div class="chart-container" style="display: flex; align-items: center; justify-content: center; color: var(--text-secondary);">
+                    <p>Cisco Firepower metrics coming soon</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="timestamp" id="lastUpdate"></div>
+    </div>
+
+    <!-- Hover Summary Card -->
+    <div class="hover-summary" id="hoverSummary">
+        <button class="hover-summary-close" onclick="hideHoverSummary()">×</button>
+        <div class="hover-summary-header">📊 Metrics at Time Point</div>
+        <div class="hover-summary-time" id="hoverSummaryTime">--</div>
+
+        <div class="hover-summary-section">
+            <div class="hover-summary-section-title">🖥️ CPU Usage</div>
+            {% if vendor_type == 'palo_alto' or not vendor_type %}
+            <div class="hover-summary-item" id="hoverMgmtCpuRow">
+                <span class="hover-summary-label">Management CPU:</span>
+                <span class="hover-summary-value" id="hoverMgmtCpu">--</span>
+            </div>
+            <div class="hover-summary-item" id="hoverDpCpuRow">
+                <span class="hover-summary-label" id="hoverDpCpuLabel">Data Plane CPU:</span>
+                <span class="hover-summary-value" id="hoverDpCpu">--</span>
+            </div>
+            {% else %}
+            <div class="hover-summary-item">
+                <span class="hover-summary-label">CPU:</span>
+                <span class="hover-summary-value" id="hoverCpu">--</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="hover-summary-section" id="hoverInterfaceSection" style="display: none;">
+            <div class="hover-summary-section-title" id="hoverInterfaceSectionTitle">🌐 Interface Bandwidth</div>
+            <div id="hoverInterfaceData">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+
+        <div class="hover-summary-section" id="hoverSessionSection" style="display: none;">
+            <div class="hover-summary-section-title">🔗 Session Stats</div>
+            <div class="hover-summary-item">
+                <span class="hover-summary-label">Active Sessions:</span>
+                <span class="hover-summary-value" id="hoverActiveSessions">--</span>
+            </div>
+            {% if vendor_type == 'fortinet' %}
+            <div class="hover-summary-item">
+                <span class="hover-summary-label">Setup Rate:</span>
+                <span class="hover-summary-value" id="hoverSessionSetupRate">--</span>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if vendor_type == 'palo_alto' or not vendor_type %}
+        <div class="hover-summary-section" id="hoverPbufSection">
+            <div class="hover-summary-section-title">📦 Packet Buffer</div>
+            <div class="hover-summary-item">
+                <span class="hover-summary-label">Buffer Utilization:</span>
+                <span class="hover-summary-value" id="hoverPbuf">--</span>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if vendor_type == 'fortinet' %}
+        <div class="hover-summary-section" id="hoverFortinetSection">
+            <div class="hover-summary-section-title">🔧 FortiGate Metrics</div>
+            <div class="hover-summary-item">
+                <span class="hover-summary-label">Memory:</span>
+                <span class="hover-summary-value" id="hoverFortinetMemory">--</span>
+            </div>
+            <div class="hover-summary-item">
+                <span class="hover-summary-label">NPU Sessions:</span>
+                <span class="hover-summary-value" id="hoverFortinetNpu">--</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Configuration object for JavaScript -->
+    <script>
+        window.firewallDetailConfig = {
+            firewallName: {{ firewall_name | tojson }},
+            firewallHost: {{ firewall_host | tojson }},
+            firewallModel: {{ firewall_model | tojson }},
+            firewallFamily: {{ firewall_family | tojson }},
+            firewallSwVersion: {{ firewall_sw_version | tojson }},
+            vendorType: {{ (vendor_type if vendor_type else 'palo_alto') | tojson }}
+        };
+    </script>
+    <script src="/static/js/firewall-detail.js"></script>
+</body>
+</html>
+

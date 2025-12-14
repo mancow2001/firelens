@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Management - FireLens Admin</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <style>
+        /* Certificate-specific styles */
+        .cert-stats {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            padding: 16px 24px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            min-width: 120px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .stat-value.valid { color: #27ae60; }
+        .stat-value.warning { color: #f39c12; }
+        .stat-value.expired { color: #e74c3c; }
+
+        .fingerprint {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .cert-subject {
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .cert-detail-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .cert-detail-row:last-child {
+            border-bottom: none;
+        }
+        .cert-detail-label {
+            font-weight: 600;
+            width: 140px;
+            flex-shrink: 0;
+            color: var(--text-secondary);
+        }
+        .cert-detail-value {
+            word-break: break-all;
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #3498db;
+            background: rgba(52, 152, 219, 0.05);
+        }
+        .upload-zone input[type="file"] {
+            display: none;
+        }
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        .upload-text {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .upload-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .cert-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .cert-badge.ca { background: #e8f4fd; color: #1565c0; }
+        [data-theme="dark"] .cert-badge.ca { background: #1e3a5f; color: #64b5f6; }
+
+        .info-banner {
+            background: var(--bg-secondary);
+            border-left: 4px solid #3498db;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            border-radius: 0 4px 4px 0;
+        }
+        .info-banner p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-simple">
+        <h1><img src="/static/img/firelens-transparent-logo-darkmode.png" alt="FireLens" class="header-logo"><span>FireLens</span> Admin</h1>
+        <div class="header-right">
+            <span class="user-info">Logged in as {{ user }}</span>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+            <form action="/admin/logout" method="POST" style="display: inline;">
+                <button type="submit" class="btn btn-sm logout-btn">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-layout">
+        <aside class="admin-sidebar">
+            <nav>
+                <div class="sidebar-section">Management</div>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-nav-item">
+                        <a href="/admin">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                            </svg>
+                            Firewalls
+                        </a>
+                    </li>
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/certificates" class="active">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                            </svg>
+                            Certificates
+                        </a>
+                    </li>
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/ssl">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            SSL/TLS
+                        </a>
+                    </li>
+                </ul>
+                <div class="sidebar-divider"></div>
+                <div class="sidebar-section">Authentication</div>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/saml">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            SAML/SSO
+                        </a>
+                    </li>
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/password">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                            Password
+                        </a>
+                    </li>
+                </ul>
+                <div class="sidebar-divider"></div>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-nav-item">
+                        <a href="/">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            View Dashboard
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="admin-main">
+            <div class="actions-bar">
+                <h2>CA Certificate Management</h2>
+                <button class="btn btn-primary" onclick="showUploadModal()">+ Upload Certificate</button>
+            </div>
+
+        <div class="info-banner">
+            <p>Upload trusted CA certificates to verify SSL/TLS connections to firewalls. When certificates are uploaded, they replace the system CA bundle for all firewall connections with <code>verify_ssl: true</code>.</p>
+        </div>
+
+        <!-- Certificate Statistics -->
+        <div class="cert-stats">
+            <div class="stat-item">
+                <span class="stat-label">Total</span>
+                <span class="stat-value" id="statTotal">{{ stats.total }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Valid</span>
+                <span class="stat-value valid" id="statValid">{{ stats.valid }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Expiring Soon</span>
+                <span class="stat-value warning" id="statExpiring">{{ stats.expiring_soon }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Expired</span>
+                <span class="stat-value expired" id="statExpired">{{ stats.expired }}</span>
+            </div>
+        </div>
+
+        <!-- Certificate List -->
+        <div class="card">
+            {% if certificates %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Subject</th>
+                        <th>Issuer</th>
+                        <th>Expires</th>
+                        <th>Fingerprint (SHA256)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="certTableBody">
+                    {% for cert in certificates %}
+                    <tr onclick="showCertDetail('{{ cert.id }}')" style="cursor: pointer;">
+                        <td>
+                            {% if cert.is_expired %}
+                            <span class="status-badge status-disabled">Expired</span>
+                            {% elif cert.days_until_expiry <= 30 %}
+                            <span class="status-badge status-stopped">{{ cert.days_until_expiry }}d left</span>
+                            {% else %}
+                            <span class="status-badge status-enabled">Valid</span>
+                            {% endif %}
+                            {% if cert.is_ca %}<span class="cert-badge ca">CA</span>{% endif %}
+                        </td>
+                        <td class="cert-subject" title="{{ cert.subject }}">{{ cert.subject }}</td>
+                        <td class="cert-subject" title="{{ cert.issuer }}">{{ cert.issuer }}</td>
+                        <td>{{ cert.not_after[:10] }}</td>
+                        <td class="fingerprint">{{ cert.fingerprint_sha256[:23] }}...</td>
+                        <td class="actions-cell" onclick="event.stopPropagation();">
+                            <button class="btn btn-sm" onclick="downloadCert('{{ cert.id }}')">Download</button>
+                            <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ cert.id }}', '{{ cert.subject | e }}')">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No CA certificates uploaded yet.</p>
+                <p style="color: var(--text-muted); font-size: 14px;">Upload CA certificates to enable SSL verification for firewalls with self-signed or private CA certificates.</p>
+                <button class="btn btn-primary" onclick="showUploadModal()">Upload Your First Certificate</button>
+            </div>
+            {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal" style="max-width: 500px;">
+            <h3>Upload CA Certificate</h3>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="upload-zone" id="uploadZone" onclick="document.getElementById('certFile').click();">
+                    <div class="upload-icon">&#128274;</div>
+                    <div class="upload-text">Click to select or drag & drop certificate file</div>
+                    <div class="upload-hint">Supported: .pem, .crt, .der, .cer (max 1MB)</div>
+                    <div class="upload-hint">Certificate bundles (multiple certs) are supported</div>
+                    <input type="file" id="certFile" name="file" accept=".pem,.crt,.der,.cer" onchange="handleFileSelect(this)">
+                </div>
+                <div id="selectedFile" style="display: none; margin-bottom: 16px; padding: 12px; background: var(--bg-secondary); border-radius: 4px;">
+                    <strong>Selected:</strong> <span id="selectedFileName"></span>
+                </div>
+                <div id="uploadResult" style="display: none; margin-bottom: 16px; padding: 12px; border-radius: 4px;"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="closeUploadModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Certificate Detail Modal -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal" style="max-width: 600px;">
+            <h3>Certificate Details</h3>
+            <div id="certDetails"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeDetailModal()">Close</button>
+                <button class="btn btn-primary" id="detailDownloadBtn" onclick="downloadCert(selectedCertId)">Download PEM</button>
+                <button class="btn btn-danger" id="detailDeleteBtn" onclick="confirmDeleteFromDetail()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <h3>Delete Certificate</h3>
+            <p>Are you sure you want to delete this certificate?</p>
+            <p id="deleteCertSubject" style="font-weight: 600; word-break: break-all;"></p>
+            <p style="color: var(--text-muted); font-size: 14px;">This action cannot be undone. The CA bundle will be regenerated.</p>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="deleteCert()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <script src="/static/js/admin-theme.js"></script>
+    <script>
+        // Pass template variables to JavaScript
+        window.adminCertificatesConfig = {
+            csrfToken: {{ csrf_token | tojson }}
+        };
+    </script>
+    <script src="/static/js/admin-certificates.js"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+[Unit]
+Description=FireLens Monitor - Multi-vendor Firewall Monitoring
+Documentation=https://github.com/mancow2001/FireLens
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=firelens
+Group=firelens
+ExecStart=/usr/bin/firelens --config /etc/firelens/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=firelens
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/firelens /var/log/firelens /etc/firelens /opt/firelens/certs
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

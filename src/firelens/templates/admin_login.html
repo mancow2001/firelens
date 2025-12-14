@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - FireLens Monitor</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body class="login-body">
+    <!-- Theme toggle button -->
+    <button class="theme-toggle-corner" onclick="toggleTheme()" title="Toggle dark mode">
+        <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+    </button>
+
+    <div class="login-container">
+        <div class="logo">
+            <img id="logoLight" src="/static/img/firelens-transparent-logo.png" alt="FireLens">
+            <img id="logoDark" src="/static/img/firelens-transparent-logo-darkmode.png" alt="FireLens" style="display: none;">
+            <p>Admin Login</p>
+        </div>
+
+        {% if error and not password_reset_required %}
+        <div class="error-message show">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        {% if password_reset_required %}
+        <div class="info-message show" style="background: var(--info-bg, #e3f2fd); color: var(--info-color, #1565c0); padding: 12px; border-radius: 6px; margin-bottom: 20px; text-align: center;">
+            Welcome! Please set up your admin password.
+        </div>
+        <form method="POST" action="/admin/setup-password">
+            <div class="form-group">
+                <label for="new_password">New Password</label>
+                <input type="password" id="new_password" name="new_password" required autofocus
+                       minlength="8" placeholder="Minimum 8 characters">
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required
+                       minlength="8" placeholder="Confirm your password">
+            </div>
+
+            <button type="submit" class="submit-btn">Set Password</button>
+        </form>
+        {% else %}
+        <form method="POST" action="/admin/login">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+
+            <button type="submit" class="submit-btn">Sign In</button>
+        </form>
+        {% endif %}
+
+        {% if saml_enabled %}
+        <div class="sso-divider">
+            <span>or</span>
+        </div>
+
+        <a href="/admin/saml/login" class="sso-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            Sign in with SSO
+        </a>
+        {% endif %}
+
+        <div class="back-link">
+            <a href="/">&larr; Back to Dashboard</a>
+        </div>
+    </div>
+
+    <script src="/static/js/admin-theme.js"></script>
+</body>
+</html>

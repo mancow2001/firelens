@@ -1,0 +1,206 @@
+firelens-monitor (1.7.0-1) stable; urgency=medium
+
+  * Stable release: Full Fortinet FortiGate support (v1.7.0)
+  * Vendor-agnostic database schema with dedicated metrics tables
+  * Vendor-aware dashboard, detail pages, and CSV export
+  * Dual-axis charts for FortiGate Metrics (Memory/NPU Sessions)
+  * Dual-axis charts for Session Statistics (Active Sessions/Setup Rate)
+  * Fix SSL verification handling for Fortinet API connections
+  * Fix config directory permissions for backup file creation
+  * Fix interface selection not preserving vendor metrics display
+  * Reduce log noise for expected API method fallbacks
+
+ -- FireLens Team <mancow2001@gmail.com>  Sat, 14 Dec 2024 10:00:00 +0000
+
+firelens-monitor (1.6.18-1) unstable; urgency=medium
+
+  * Fix config directory permissions for backup file creation (v1.6.18)
+  * Change /etc/firelens from 750 to 770 so firelens user can create backups
+
+ -- FireLens Team <mancow2001@gmail.com>  Sat, 14 Dec 2024 07:00:00 +0000
+
+firelens-monitor (1.6.17-1) unstable; urgency=medium
+
+  * Hide session utilization % for Fortinet on dashboard (v1.6.17)
+  * Fortinet max_sessions is 24h peak, not actual firewall capacity
+
+ -- FireLens Team <mancow2001@gmail.com>  Sat, 14 Dec 2024 06:00:00 +0000
+
+firelens-monitor (1.6.16-1) unstable; urgency=medium
+
+  * Vendor-aware CSV export on firewall detail page (v1.6.16)
+  * Palo Alto: Export Mgmt CPU, DP CPU (Mean/Max/P95), Packet Buffer
+  * Fortinet: Export CPU, Memory, Setup Rate, NPU Sessions
+
+ -- FireLens Team <mancow2001@gmail.com>  Sat, 14 Dec 2024 05:00:00 +0000
+
+firelens-monitor (1.6.15-1) unstable; urgency=medium
+
+  * Fix dashboard landing page to show vendor-specific metrics (v1.6.15)
+  * Palo Alto: Show Mgmt CPU, DP CPU, Packet Buffer
+  * Fortinet: Show CPU, Memory, Setup Rate
+  * Remove obsolete throughput/pps from main display
+
+ -- FireLens Team <mancow2001@gmail.com>  Sat, 14 Dec 2024 04:00:00 +0000
+
+firelens-monitor (1.6.14-1) unstable; urgency=medium
+
+  * Fix migration to add cpu_usage column to existing fortinet_metrics tables (v1.6.14)
+  * Automatic schema migration on service restart
+
+ -- FireLens Team <mancow2001@gmail.com>  Sat, 14 Dec 2024 03:00:00 +0000
+
+firelens-monitor (1.6.13-1) unstable; urgency=medium
+
+  * Schema v2: Move vendor-specific metrics to dedicated tables (v1.6.13)
+  * Main metrics table now vendor-agnostic (timestamp, firewall_name only)
+  * Palo Alto CPU/pbuf metrics now stored in palo_alto_metrics table
+  * Fortinet metrics continue to use fortinet_metrics table
+  * Fix JavaScript to read CPU data from vendor-metrics endpoint
+  * Fix CPU display bug (was showing memory instead of CPU)
+
+ -- FireLens Team <mancow2001@gmail.com>  Sat, 14 Dec 2024 02:00:00 +0000
+
+firelens-monitor (1.6.12-1) unstable; urgency=medium
+
+  * Add cpu_usage column to fortinet_metrics table (v1.6.12)
+  * Fix Fortinet CPU not being stored (was missing from schema)
+  * Update insert_fortinet_metrics to include cpu_usage
+
+ -- FireLens Team <mancow2001@gmail.com>  Sat, 14 Dec 2024 01:00:00 +0000
+
+firelens-monitor (1.6.11-1) unstable; urgency=medium
+
+  * Fix Fortinet memory_usage_percent not being collected (v1.6.11)
+  * Add memory_usage_percent to metrics dict in EnhancedFirewallCollector
+  * Fixes NULL memory values in fortinet_metrics table
+
+ -- FireLens Team <mancow2001@gmail.com>  Sat, 14 Dec 2024 00:00:00 +0000
+
+firelens-monitor (1.6.10-1) unstable; urgency=medium
+
+  * Fix JavaScript errors on Fortinet detail page (v1.6.10)
+  * Add null checks for Palo Alto-only elements (pbufChart, cpuAggregation)
+  * Prevents "Cannot read properties of null" errors for Fortinet firewalls
+
+ -- FireLens Team <mancow2001@gmail.com>  Fri, 13 Dec 2024 23:00:00 +0000
+
+firelens-monitor (1.6.9-1) unstable; urgency=medium
+
+  * Vendor-aware Fortinet detail page display (v1.6.9)
+  * Fix current values to show Fortinet-specific metrics (CPU, Memory, Setup Rate)
+  * Fix CPU chart to display single CPU line for FortiGate (not Mgmt/DP split)
+  * Make hover summary vendor-aware for Fortinet metrics
+  * Remove Palo Alto-specific labels from Fortinet firewall view
+
+ -- FireLens Team <mancow2001@gmail.com>  Fri, 13 Dec 2024 22:00:00 +0000
+
+firelens-monitor (1.6.8-1) unstable; urgency=medium
+
+  * Fix Fortinet detail page blank data issues (v1.6.8)
+  * Add /api/firewall/{name}/vendor-metrics endpoint for Fortinet metrics
+  * Add JavaScript chart and summary for FortiGate Memory, Setup Rate, NPU Sessions
+  * Fix session stats API to use /monitor/system/resource/usage endpoint
+  * Session stats now show accurate counts (was returning 0)
+
+ -- FireLens Team <mancow2001@gmail.com>  Fri, 13 Dec 2024 21:00:00 +0000
+
+firelens-monitor (1.6.5-1) unstable; urgency=medium
+
+  * Fix Fortinet collector and session monitoring errors (v1.6.5)
+  * Fix SessionStatistics -> SessionStats class name in interface_monitor.py
+  * Fix vendor_metrics dict access for session_setup_rate and npu_sessions
+
+ -- FireLens Team <mancow2001@gmail.com>  Fri, 13 Dec 2024 19:00:00 +0000
+
+firelens-monitor (1.6.4-1) unstable; urgency=medium
+
+  * Packaging version sync and Fortinet config validation fix (v1.6.4)
+  * Fix config validation to only require API token for Fortinet firewalls
+  * Update all packaging artifacts to match release version
+
+ -- FireLens Team <mancow2001@gmail.com>  Fri, 13 Dec 2024 18:00:00 +0000
+
+firelens-monitor (1.6.3-1) unstable; urgency=medium
+
+  * Multi-vendor collector fixes and upgrade safety improvements (v1.6.3)
+  * Full Fortinet FortiGate support with REST API integration
+  * Vendor-aware InterfaceMonitor, collectors, and config validation
+  * Database schema version tracking for safe upgrades
+  * Config save backup/restore error handling
+  * Added docs/UPGRADING.md upgrade guide
+
+ -- FireLens Team <mancow2001@gmail.com>  Fri, 13 Dec 2024 15:30:00 +0000
+
+firelens-monitor (1.5.0-1) unstable; urgency=medium
+
+  * Version stabilization release (v1.5.0)
+  * Updated all placeholder references with official project URLs
+  * Consolidated versioning across all packaging artifacts
+
+ -- FireLens Team <mancow2001@gmail.com>  Thu, 12 Dec 2024 12:00:00 +0000
+
+firelens-monitor (1.2.5-1) unstable; urgency=medium
+
+  * Fix last remaining absolute import (vendors in admin.py)
+
+ -- FireLens Team <mancow2001@gmail.com>  Thu, 12 Dec 2024 04:50:00 +0000
+
+firelens-monitor (1.2.4-1) unstable; urgency=medium
+
+  * Complete fix for ALL remaining absolute imports in packaged installation
+  * Fixed 12+ additional import issues found in dashboard.py, saml.py,
+    admin.py, and collectors.py
+
+ -- FireLens Team <mancow2001@gmail.com>  Thu, 12 Dec 2024 04:45:00 +0000
+
+firelens-monitor (1.2.3-1) unstable; urgency=medium
+
+  * Comprehensive fix for all relative imports in packaged installation
+  * Fix imports in web_dashboard/app.py, routes/dashboard.py, routes/ssl.py,
+    routes/certificates.py, and vendors/palo_alto.py
+
+ -- FireLens Team <mancow2001@gmail.com>  Thu, 12 Dec 2024 04:30:00 +0000
+
+firelens-monitor (1.2.2-1) unstable; urgency=medium
+
+  * Fix relative imports in web dashboard routes for packaged installation
+
+ -- FireLens Team <mancow2001@gmail.com>  Thu, 12 Dec 2024 04:15:00 +0000
+
+firelens-monitor (1.2.1-1) unstable; urgency=medium
+
+  * Fix config file permissions to allow password storage
+
+ -- FireLens Team <mancow2001@gmail.com>  Thu, 12 Dec 2024 04:10:00 +0000
+
+firelens-monitor (1.2.0-1) unstable; urgency=medium
+
+  * Fix SSL manager import for packaged installations
+  * Add initial password setup flow for first-time login
+  * Fix RPM spec to use renamed systemd service file
+
+ -- FireLens Team <mancow2001@gmail.com>  Thu, 12 Dec 2024 00:00:00 +0000
+
+firelens-monitor (1.1.0-1) unstable; urgency=medium
+
+  * Package distribution release
+  * Complete packaging infrastructure for PyPI, Docker, deb, and rpm
+  * Restructured codebase to standard src/ layout
+  * CLI commands: firelens and firelens-ctl
+  * System packages include systemd service integration
+
+ -- FireLens Team <mancow2001@gmail.com>  Thu, 12 Dec 2024 00:00:00 +0000
+
+firelens-monitor (1.0.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Multi-vendor firewall monitoring (Palo Alto, Fortinet stub, Cisco stub)
+  * Web dashboard with real-time metrics
+  * SQLite database for metrics storage
+  * SAML/SSO authentication support
+  * SSL/TLS support with auto-generation
+  * Interface bandwidth monitoring
+  * Session statistics collection
+
+ -- FireLens Team <mancow2001@gmail.com>  Wed, 11 Dec 2024 00:00:00 +0000

@@ -1,0 +1,29 @@
+Source: firelens-monitor
+Section: admin
+Priority: optional
+Maintainer: FireLens Team <mancow2001@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               python3,
+               python3-pip,
+               python3-venv,
+               python3-dev,
+               libxmlsec1-dev,
+               pkg-config
+Standards-Version: 4.6.0
+Homepage: https://github.com/mancow2001/firelens
+
+Package: firelens-monitor
+Architecture: all
+Depends: ${misc:Depends},
+         python3 (>= 3.9),
+         libxmlsec1-openssl
+Description: Multi-vendor firewall monitoring solution
+ FireLens Monitor collects real-time CPU, throughput, packet buffer,
+ interface bandwidth, and session statistics from multiple firewalls
+ simultaneously, storing them in a SQLite database with a web-based
+ dashboard for visualization.
+ .
+ Supported vendors:
+  - Palo Alto Networks (fully implemented)
+  - Fortinet FortiGate (fully implemented)
+  - Cisco Firepower (planned)

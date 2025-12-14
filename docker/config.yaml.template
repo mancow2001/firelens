@@ -1,0 +1,70 @@
+# FireLens Monitor Docker Configuration
+# Copy this file to config.yaml and customize for your environment
+
+global:
+  output_dir: "/var/lib/firelens/output"
+  database_path: "/var/lib/firelens/data/metrics.db"
+
+  web_dashboard: true
+  web_port: 8080
+
+  log_level: "INFO"  # Can be overridden with FIRELENS_LOG_LEVEL env var
+
+  interface_monitoring_enabled: true
+  session_statistics_enabled: true
+
+  admin:
+    enabled: true
+    username: "fireAdmin"
+    password_hash: ""  # Set on first login or use bcrypt hash
+    password_reset_required: true
+    session_timeout_minutes: 60
+    secure_cookies: true
+
+  web_ssl:
+    enabled: true
+    auto_generate: true
+    https_port: 8443
+    http_port: 8080
+    redirect_http_to_https: true
+    min_tls_version: "TLSv1.2"
+
+  certs_directory: "/opt/firelens/certs"
+
+# Configure your firewalls below
+firewalls:
+  # Example Palo Alto firewall
+  example_palo_alto:
+    type: palo_alto
+    host: "https://192.168.1.1"
+    username: "admin"
+    password: "your_password_here"
+    verify_ssl: false
+    enabled: false  # Set to true when configured
+    poll_interval: 30
+    interface_monitoring: true
+    auto_discover_interfaces: true
+    exclude_interfaces:
+      - mgmt
+      - loopback
+      - tunnel
+
+  # Example Fortinet FortiGate (stub - not yet implemented)
+  # example_fortigate:
+  #   type: fortinet
+  #   host: "https://192.168.1.2"
+  #   username: "admin"
+  #   password: "api_token_here"  # Use API token for Fortinet
+  #   verify_ssl: false
+  #   enabled: false
+  #   poll_interval: 30
+
+  # Example Cisco Firepower (stub - not yet implemented)
+  # example_firepower:
+  #   type: cisco_firepower
+  #   host: "https://192.168.1.3"
+  #   username: "admin"
+  #   password: "password"
+  #   verify_ssl: false
+  #   enabled: false
+  #   poll_interval: 30

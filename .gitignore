@@ -1,0 +1,6 @@
+/src/firelens/__pycache__
+/src/firelens/web_dashboard/__pycache__
+/src/firelens/web_dashboard/routes/__pycache__
+/tests/__pycache__
+packaging/.DS_Store
+.DS_Store

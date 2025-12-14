@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FireLens Multi-Firewall Monitor</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="/static/js/chart.min.js"></script>
+</head>
+<body>
+    <div class="header">
+        <div class="logo-title">
+            <img src="/static/img/firelens-transparent-logo-darkmode.png" alt="FireLens" class="header-logo">
+            <div>
+                <h1><span style="color: #e74c3c;">FireLens</span> Monitor</h1>
+                <p>Real-time monitoring with accurate interface bandwidth and session tracking</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="/admin" class="admin-link" title="Admin Panel">⚙️ Admin</a>
+            <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Toggle dark mode">
+                <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        {% if database_stats %}
+        <div class="stats-section">
+            <h2>📊 System Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">{{ database_stats.total_metrics }}</div>
+                    <div class="stat-label">Session Metrics</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ database_stats.interface_metrics_count or 0 }}</div>
+                    <div class="stat-label">Interface Metrics</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ database_stats.session_statistics_count or 0 }}</div>
+                    <div class="stat-label">Session Statistics</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ firewalls|length }}</div>
+                    <div class="stat-label">Monitored Firewalls</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ database_stats.database_size_mb }}</div>
+                    <div class="stat-label">Database Size (MB)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ uptime_hours }}</div>
+                    <div class="stat-label">Uptime (Hours)</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Search and Pagination Controls -->
+        <div class="firewall-controls">
+            <div class="search-box">
+                <input type="text" id="firewallSearch" placeholder="Search firewalls by name or URL..." oninput="filterFirewalls()">
+                <span class="search-icon">🔍</span>
+            </div>
+            <div class="pagination-info">
+                <span id="showingInfo">Showing all firewalls</span>
+            </div>
+        </div>
+
+        <div class="firewall-grid" id="firewallGrid">
+            {% for firewall in firewalls %}
+            <div class="firewall-card {% if not firewall.enabled %}firewall-disabled{% endif %}"
+                 data-name="{{ firewall.name | lower }}"
+                 data-host="{{ firewall.host | lower }}"
+                 data-sort-name="{{ firewall.name | lower }}">
+                <div class="firewall-name">
+                    <span class="status-indicator {{ firewall.status_class }}"></span>
+                    {{ firewall.name }}
+                    {% if not firewall.enabled %}
+                    <span class="disabled-badge">Disabled</span>
+                    {% endif %}
+                </div>
+                <div class="firewall-host">{{ firewall.host }}</div>
+                {% if firewall.model %}
+                <div class="firewall-model">
+                    <span class="firewall-model-badge">{{ firewall.model }}</span>
+                    {% if firewall.sw_version %}
+                    <span class="firewall-version">v{{ firewall.sw_version }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if firewall.vendor_metrics %}
+                <div class="metrics-summary">
+                    {% if firewall.vendor_type == 'palo_alto' %}
+                    {# Palo Alto: Mgmt CPU and Data Plane CPU #}
+                    <div class="metric-item">
+                        <div class="metric-label">Mgmt CPU</div>
+                        <div class="metric-value {{ firewall.mgmt_cpu_class }}">
+                            {{ "%.1f"|format(firewall.vendor_metrics.mgmt_cpu or 0) }}%
+                        </div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">DP CPU</div>
+                        <div class="metric-value {{ firewall.dp_cpu_class }}">
+                            {{ "%.1f"|format(firewall.vendor_metrics.data_plane_cpu_mean or 0) }}%
+                        </div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Pkt Buffer</div>
+                        <div class="metric-value">
+                            {{ "%.1f"|format(firewall.vendor_metrics.pbuf_util_percent or 0) }}%
+                        </div>
+                    </div>
+                    {% elif firewall.vendor_type == 'fortinet' %}
+                    {# Fortinet: Single CPU and Memory #}
+                    <div class="metric-item">
+                        <div class="metric-label">CPU</div>
+                        <div class="metric-value {{ firewall.cpu_class }}">
+                            {{ "%.1f"|format(firewall.vendor_metrics.cpu_usage or 0) }}%
+                        </div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Memory</div>
+                        <div class="metric-value">
+                            {{ "%.1f"|format(firewall.vendor_metrics.memory_usage_percent or 0) }}%
+                        </div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Setup Rate</div>
+                        <div class="metric-value">
+                            {{ "%.1f"|format(firewall.vendor_metrics.session_setup_rate or 0) }}/s
+                        </div>
+                    </div>
+                    {% else %}
+                    {# Unknown vendor - show basic info #}
+                    <div class="metric-item">
+                        <div class="metric-label">Status</div>
+                        <div class="metric-value">Collecting...</div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% elif firewall.latest_metrics %}
+                {# Fallback: No vendor metrics yet but have timestamp #}
+                <div class="metrics-summary">
+                    <div class="metric-item">
+                        <div class="metric-label">Status</div>
+                        <div class="metric-value">Awaiting data...</div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if firewall.interface_summary %}
+                <div class="enhanced-metrics">
+                    <div class="enhanced-label">🌐 Interface Bandwidth - {{ firewall.interface_summary.interface_count }} Monitored</div>
+                    <div class="interface-summary">
+                        <div class="metric-item">
+                            <div class="metric-label">Total RX</div>
+                            <div class="metric-value">{{ "%.1f"|format(firewall.interface_summary.total_rx or 0) }} Mbps</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Total TX</div>
+                            <div class="metric-value">{{ "%.1f"|format(firewall.interface_summary.total_tx or 0) }} Mbps</div>
+                        </div>
+                    </div>
+                    {% if firewall.interface_summary.monitored_interfaces %}
+                    <div style="font-size: 0.8em; color: #27ae60; margin-top: 5px;">
+                        {{ firewall.interface_summary.monitored_interfaces|join(", ") }}
+                        {% if firewall.interface_summary.total_interfaces > firewall.interface_summary.interface_count %}
+                        + {{ firewall.interface_summary.total_interfaces - firewall.interface_summary.interface_count }} more
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                {% if firewall.session_summary %}
+                <div class="enhanced-metrics">
+                    <div class="enhanced-label">🔗 Session Statistics</div>
+                    <div class="interface-summary">
+                        <div class="metric-item">
+                            <div class="metric-label">Active Sessions</div>
+                            <div class="metric-value">{{ "{:,}".format(firewall.session_summary.active_sessions or 0) }}</div>
+                        </div>
+                        {% if firewall.vendor_type != 'fortinet' %}
+                        {# Only show utilization for Palo Alto - Fortinet max_sessions is 24h peak, not capacity #}
+                        <div class="metric-item">
+                            <div class="metric-label">Utilization</div>
+                            <div class="metric-value">{{ "%.1f"|format(firewall.session_summary.session_utilization or 0) }}%</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if firewall.latest_metrics or firewall.vendor_metrics %}
+                <p style="font-size: 0.8em; color: #7f8c8d; margin: 10px 0;">
+                    Last updated: {{ firewall.last_update }}
+                </p>
+                {% else %}
+                <p style="color: #e74c3c;">No metrics available</p>
+                {% endif %}
+
+                <a href="/firewall/{{ firewall.name }}" class="view-button">
+                    📊 View Details
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-controls" id="paginationControls">
+            <button class="pagination-btn" id="prevPage" onclick="changePage(-1)" disabled>
+                ← Previous
+            </button>
+            <div class="pagination-numbers" id="paginationNumbers">
+                <!-- Page numbers will be inserted by JavaScript -->
+            </div>
+            <button class="pagination-btn" id="nextPage" onclick="changePage(1)">
+                Next →
+            </button>
+        </div>
+
+        <!-- No results message -->
+        <div class="no-results" id="noResults" style="display: none;">
+            <h3>No firewalls found</h3>
+            <p>No firewalls match your search criteria.</p>
+        </div>
+
+        {% if not firewalls %}
+        <div class="stats-section">
+            <div class="no-firewalls">
+                <h2>No Firewalls Configured</h2>
+                <p>Add firewall configurations to start monitoring.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Dark Mode Toggle Functionality
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+            if (newTheme === 'dark') {
+                html.setAttribute('data-theme', 'dark');
+            } else {
+                html.removeAttribute('data-theme');
+            }
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+
+        // Update theme toggle icon
+        function updateThemeIcon(theme) {
+            const sunIcon = document.getElementById('sunIcon');
+            const moonIcon = document.getElementById('moonIcon');
+            if (sunIcon && moonIcon) {
+                if (theme === 'dark') {
+                    sunIcon.style.display = 'none';
+                    moonIcon.style.display = 'block';
+                } else {
+                    sunIcon.style.display = 'block';
+                    moonIcon.style.display = 'none';
+                }
+            }
+        }
+
+        // Initialize theme from localStorage on page load
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+            updateThemeIcon(theme);
+        })();
+
+        // Auto-refresh every 30 seconds (preserve search and page)
+        setTimeout(() => {
+            // Preserve current state in URL before refresh
+            const currentSearch = document.getElementById('firewallSearch').value;
+            const url = new URL(window.location);
+            if (currentSearch) {
+                url.searchParams.set('search', currentSearch);
+            }
+            url.searchParams.set('page', currentPage);
+            window.location.href = url.toString();
+        }, 30000);
+
+        // Pagination and Search Configuration
+        const ITEMS_PER_PAGE = 6;
+        let currentPage = 1;
+        let filteredCards = [];
+        let allCards = [];
+
+        // Initialize pagination and search
+        function initPagination() {
+            const grid = document.getElementById('firewallGrid');
+            allCards = Array.from(grid.querySelectorAll('.firewall-card'));
+
+            // Sort cards alphabetically by name
+            allCards.sort((a, b) => {
+                const nameA = a.dataset.sortName || '';
+                const nameB = b.dataset.sortName || '';
+                return nameA.localeCompare(nameB);
+            });
+
+            // Reorder DOM to match sorted order
+            allCards.forEach(card => grid.appendChild(card));
+
+            // Initialize filtered cards to all cards
+            filteredCards = [...allCards];
+
+            // Check URL parameters for initial state
+            const urlParams = new URLSearchParams(window.location.search);
+            const searchParam = urlParams.get('search');
+            const pageParam = urlParams.get('page');
+
+            if (searchParam) {
+                document.getElementById('firewallSearch').value = searchParam;
+                filterFirewalls();
+            }
+
+            if (pageParam) {
+                currentPage = parseInt(pageParam) || 1;
+            }
+
+            updateDisplay();
+        }
+
+        // Filter firewalls based on search input
+        function filterFirewalls() {
+            const searchTerm = document.getElementById('firewallSearch').value.toLowerCase().trim();
+
+            if (searchTerm === '') {
+                filteredCards = [...allCards];
+            } else {
+                filteredCards = allCards.filter(card => {
+                    const name = card.dataset.name || '';
+                    const host = card.dataset.host || '';
+                    return name.includes(searchTerm) || host.includes(searchTerm);
+                });
+            }
+
+            // Reset to page 1 when filtering
+            currentPage = 1;
+            updateDisplay();
+        }
+
+        // Update the display based on current page and filtered results
+        function updateDisplay() {
+            const totalItems = filteredCards.length;
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+            // Ensure current page is valid
+            if (currentPage < 1) currentPage = 1;
+            if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
+
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+
+            // Hide all cards first
+            allCards.forEach(card => {
+                card.style.display = 'none';
+            });
+
+            // Show only the cards for current page
+            filteredCards.slice(startIndex, endIndex).forEach(card => {
+                card.style.display = '';
+            });
+
+            // Update pagination controls
+            updatePaginationControls(totalPages);
+
+            // Update showing info
+            const showingInfo = document.getElementById('showingInfo');
+            const noResults = document.getElementById('noResults');
+            const paginationControls = document.getElementById('paginationControls');
+
+            if (totalItems === 0) {
+                showingInfo.textContent = 'No firewalls found';
+                noResults.style.display = 'block';
+                paginationControls.style.display = 'none';
+            } else {
+                const showStart = startIndex + 1;
+                const showEnd = Math.min(endIndex, totalItems);
+                showingInfo.textContent = `Showing ${showStart}-${showEnd} of ${totalItems} firewalls`;
+                noResults.style.display = 'none';
+                paginationControls.style.display = totalPages > 1 ? 'flex' : 'none';
+            }
+        }
+
+        // Update pagination button states and page numbers
+        function updatePaginationControls(totalPages) {
+            const prevBtn = document.getElementById('prevPage');
+            const nextBtn = document.getElementById('nextPage');
+            const paginationNumbers = document.getElementById('paginationNumbers');
+
+            // Update prev/next buttons
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+
+            // Generate page numbers
+            paginationNumbers.innerHTML = '';
+
+            if (totalPages <= 7) {
+                // Show all pages if 7 or fewer
+                for (let i = 1; i <= totalPages; i++) {
+                    paginationNumbers.appendChild(createPageButton(i));
+                }
+            } else {
+                // Show first page
+                paginationNumbers.appendChild(createPageButton(1));
+
+                if (currentPage > 3) {
+                    paginationNumbers.appendChild(createEllipsis());
+                }
+
+                // Show pages around current
+                const start = Math.max(2, currentPage - 1);
+                const end = Math.min(totalPages - 1, currentPage + 1);
+
+                for (let i = start; i <= end; i++) {
+                    paginationNumbers.appendChild(createPageButton(i));
+                }
+
+                if (currentPage < totalPages - 2) {
+                    paginationNumbers.appendChild(createEllipsis());
+                }
+
+                // Show last page
+                paginationNumbers.appendChild(createPageButton(totalPages));
+            }
+        }
+
+        // Create a page number button
+        function createPageButton(pageNum) {
+            const btn = document.createElement('button');
+            btn.className = 'pagination-num' + (pageNum === currentPage ? ' active' : '');
+            btn.textContent = pageNum;
+            btn.onclick = () => goToPage(pageNum);
+            return btn;
+        }
+
+        // Create ellipsis element
+        function createEllipsis() {
+            const span = document.createElement('span');
+            span.className = 'pagination-ellipsis';
+            span.textContent = '...';
+            return span;
+        }
+
+        // Change page by delta (-1 or +1)
+        function changePage(delta) {
+            currentPage += delta;
+            updateDisplay();
+        }
+
+        // Go to specific page
+        function goToPage(pageNum) {
+            currentPage = pageNum;
+            updateDisplay();
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initPagination);
+    </script>
+</body>
+</html>

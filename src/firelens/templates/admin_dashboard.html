@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - FireLens Monitor</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="header-simple">
+        <h1><img src="/static/img/firelens-transparent-logo-darkmode.png" alt="FireLens" class="header-logo"><span>FireLens</span> Admin</h1>
+        <div class="header-right">
+            <span class="user-info">Logged in as {{ user }}</span>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+            <form action="/admin/logout" method="POST" style="display: inline;">
+                <button type="submit" class="btn btn-sm logout-btn">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-layout">
+        <aside class="admin-sidebar">
+            <nav>
+                <div class="sidebar-section">Management</div>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-nav-item">
+                        <a href="/admin" class="active">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                            </svg>
+                            Firewalls
+                        </a>
+                    </li>
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/certificates">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                            </svg>
+                            Certificates
+                        </a>
+                    </li>
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/ssl">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            SSL/TLS
+                        </a>
+                    </li>
+                </ul>
+                <div class="sidebar-divider"></div>
+                <div class="sidebar-section">Authentication</div>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/saml">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            SAML/SSO
+                        </a>
+                    </li>
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/password">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                            Password
+                        </a>
+                    </li>
+                </ul>
+                <div class="sidebar-divider"></div>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-nav-item">
+                        <a href="/">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            View Dashboard
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="admin-main">
+            <div class="actions-bar">
+                <h2>Firewall Management</h2>
+                <a href="/admin/firewall/add" class="btn btn-primary">+ Add Firewall</a>
+            </div>
+
+        <div class="card">
+            {% if firewalls %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Host</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Collector</th>
+                        <th>Auth</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fw in firewalls %}
+                    <tr>
+                        <td><strong>{{ fw.name }}</strong></td>
+                        <td>{{ fw.host }}</td>
+                        <td><span class="vendor-badge">{{ fw.type }}</span></td>
+                        <td>
+                            <span class="status-badge {% if fw.enabled %}status-enabled{% else %}status-disabled{% endif %}">
+                                {{ 'Enabled' if fw.enabled else 'Disabled' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge {% if fw.collector_status == 'running' %}status-running{% else %}status-stopped{% endif %}">
+                                {{ fw.collector_status }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge {% if fw.authenticated %}status-auth{% else %}status-noauth{% endif %}">
+                                {{ 'Yes' if fw.authenticated else 'No' }}
+                            </span>
+                        </td>
+                        <td class="actions-cell">
+                            <a href="/admin/firewall/{{ fw.name | urlencode }}/edit" class="btn btn-sm btn-primary">Edit</a>
+                            <button class="btn btn-sm btn-warning" data-name="{{ fw.name | e }}" data-enabled="{{ fw.enabled | tojson }}" onclick="toggleFirewall(this.dataset.name, this.dataset.enabled === 'true')">
+                                {{ 'Disable' if fw.enabled else 'Enable' }}
+                            </button>
+                            <button class="btn btn-sm btn-danger" data-name="{{ fw.name | e }}" onclick="confirmDelete(this.dataset.name)">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No firewalls configured yet.</p>
+                <a href="/admin/firewall/add" class="btn btn-primary">Add Your First Firewall</a>
+            </div>
+            {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <h3>Delete Firewall</h3>
+            <p>Are you sure you want to delete <strong id="deleteFirewallName"></strong>? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="deleteFirewall()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <script src="/static/js/admin-theme.js"></script>
+    <script>
+        // Pass template variables to JavaScript
+        window.adminDashboardConfig = {
+            csrfToken: {{ csrf_token | tojson }}
+        };
+    </script>
+    <script src="/static/js/admin-dashboard.js"></script>
+</body>
+</html>

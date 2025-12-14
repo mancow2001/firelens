@@ -1,0 +1,46 @@
+#!/usr/bin/make -f
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	# Build wheel using pip
+	python3 -m pip wheel --no-deps --wheel-dir=dist .
+
+override_dh_auto_install:
+	# Create virtual environment in temp location first
+	python3 -m venv /tmp/firelens-venv
+	/tmp/firelens-venv/bin/pip install --upgrade pip
+	/tmp/firelens-venv/bin/pip install dist/*.whl
+	# Move venv to package directory
+	mkdir -p debian/firelens-monitor/opt/firelens
+	cp -a /tmp/firelens-venv debian/firelens-monitor/opt/firelens/venv
+	# Fix shebang paths
+	find debian/firelens-monitor/opt/firelens/venv/bin -type f -exec \
+		sed -i 's|/tmp/firelens-venv|/opt/firelens/venv|g' {} \; 2>/dev/null || true
+	# Create wrapper scripts in /usr/bin
+	mkdir -p debian/firelens-monitor/usr/bin
+	echo '#!/bin/bash' > debian/firelens-monitor/usr/bin/firelens
+	echo 'exec /opt/firelens/venv/bin/firelens "$$@"' >> debian/firelens-monitor/usr/bin/firelens
+	chmod +x debian/firelens-monitor/usr/bin/firelens
+	echo '#!/bin/bash' > debian/firelens-monitor/usr/bin/firelens-ctl
+	echo 'exec /opt/firelens/venv/bin/firelens-ctl "$$@"' >> debian/firelens-monitor/usr/bin/firelens-ctl
+	chmod +x debian/firelens-monitor/usr/bin/firelens-ctl
+	# Create directories
+	mkdir -p debian/firelens-monitor/etc/firelens
+	mkdir -p debian/firelens-monitor/var/lib/firelens/data
+	mkdir -p debian/firelens-monitor/var/log/firelens
+	mkdir -p debian/firelens-monitor/opt/firelens/certs
+	# Install default config
+	install -D -m 640 docker/config.yaml.template \
+		debian/firelens-monitor/etc/firelens/config.yaml.example
+
+override_dh_auto_test:
+	# Skip tests during package build
+
+override_dh_installsystemd:
+	dh_installsystemd --name=firelens
+
+override_dh_shlibdeps:
+	# Skip shared library dependency check for venv

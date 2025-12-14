@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  firelens:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: firelens-monitor
+    restart: unless-stopped
+
+    ports:
+      - "${FIRELENS_HTTP_PORT:-8080}:8080"
+      - "${FIRELENS_HTTPS_PORT:-8443}:8443"
+
+    volumes:
+      # Configuration - bind mount for easy editing
+      - ./config.yaml:/etc/firelens/config.yaml:ro
+
+      # Persistent data
+      - firelens_data:/var/lib/firelens
+
+      # Logs (optional - can also use docker logs)
+      - firelens_logs:/var/log/firelens
+
+      # SSL certificates (optional)
+      - ./certs:/opt/firelens/certs:ro
+
+    environment:
+      # Override settings via environment variables
+      - FIRELENS_LOG_LEVEL=${FIRELENS_LOG_LEVEL:-INFO}
+      - TZ=${TZ:-UTC}
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Resource limits (adjust based on number of monitored firewalls)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+volumes:
+  firelens_data:
+    driver: local
+  firelens_logs:
+    driver: local

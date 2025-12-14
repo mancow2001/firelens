@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSL/TLS Management - FireLens Admin</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <style>
+        /* SSL-specific styles */
+        .ssl-status {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            padding: 16px 24px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            min-width: 150px;
+        }
+        .status-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .status-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .status-value.enabled { color: #27ae60; }
+        .status-value.warning { color: #f39c12; }
+        .status-value.error { color: #e74c3c; }
+        .status-value.disabled { color: #95a5a6; }
+
+        .cert-info-card {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .cert-info-card h3 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .cert-detail-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .cert-detail-row:last-child {
+            border-bottom: none;
+        }
+        .cert-detail-label {
+            font-weight: 600;
+            width: 180px;
+            flex-shrink: 0;
+            color: var(--text-secondary);
+        }
+        .cert-detail-value {
+            word-break: break-all;
+        }
+        .fingerprint {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .warning-banner {
+            background: #fdf2e9;
+            border: 1px solid #f39c12;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .warning-banner.error {
+            background: #fdecea;
+            border-color: #e74c3c;
+        }
+        .warning-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        .warning-content h4 {
+            margin: 0 0 4px 0;
+            color: #e67e22;
+        }
+        .warning-banner.error .warning-content h4 {
+            color: #c0392b;
+        }
+        .warning-content p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .upload-section {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .upload-section h3 {
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-row label {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .form-row textarea {
+            width: 100%;
+            height: 150px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            resize: vertical;
+        }
+        .form-row small {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-simple">
+        <h1><img src="/static/img/firelens-transparent-logo-darkmode.png" alt="FireLens" class="header-logo"><span>FireLens</span> Admin</h1>
+        <div class="header-right">
+            <span class="user-info">Logged in as {{ user }}</span>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+            <form action="/admin/logout" method="POST" style="display: inline;">
+                <button type="submit" class="btn btn-sm logout-btn">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-layout">
+        <aside class="admin-sidebar">
+            <nav>
+                <div class="sidebar-section">Management</div>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-nav-item">
+                        <a href="/admin">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                            </svg>
+                            Firewalls
+                        </a>
+                    </li>
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/certificates">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                            </svg>
+                            Certificates
+                        </a>
+                    </li>
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/ssl" class="active">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            SSL/TLS
+                        </a>
+                    </li>
+                </ul>
+                <div class="sidebar-divider"></div>
+                <div class="sidebar-section">Authentication</div>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/saml">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            SAML/SSO
+                        </a>
+                    </li>
+                    <li class="sidebar-nav-item">
+                        <a href="/admin/password">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                            Password
+                        </a>
+                    </li>
+                </ul>
+                <div class="sidebar-divider"></div>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-nav-item">
+                        <a href="/">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            View Dashboard
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="admin-main">
+            <div class="page-header">
+                <h1>SSL/TLS Certificate Management</h1>
+                <p class="subtitle">Manage HTTPS certificates for the web dashboard</p>
+            </div>
+
+        <!-- SSL Status -->
+        <div class="ssl-status">
+            <div class="status-item">
+                <span class="status-label">SSL Status</span>
+                <span class="status-value {{ 'enabled' if ssl_enabled else 'disabled' }}">
+                    {{ 'Enabled' if ssl_enabled else 'Disabled' }}
+                </span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">HTTPS Port</span>
+                <span class="status-value">{{ https_port }}</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">HTTP Port</span>
+                <span class="status-value">{{ http_port }}</span>
+            </div>
+            {% if cert_info %}
+            <div class="status-item">
+                <span class="status-label">Certificate Status</span>
+                <span class="status-value {{ 'error' if cert_info.expired else 'warning' if cert_info.expiring_soon else 'enabled' }}">
+                    {{ 'Expired' if cert_info.expired else 'Expiring Soon' if cert_info.expiring_soon else 'Valid' }}
+                </span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Days Until Expiry</span>
+                <span class="status-value {{ 'error' if cert_info.days_until_expiry < 0 else 'warning' if cert_info.days_until_expiry <= 30 else '' }}">
+                    {{ cert_info.days_until_expiry }}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Warning banners -->
+        {% if cert_info and cert_info.expired %}
+        <div class="warning-banner error">
+            <span class="warning-icon">&#9888;</span>
+            <div class="warning-content">
+                <h4>Certificate Expired</h4>
+                <p>The SSL certificate has expired. Browsers will show security warnings. Please upload a new certificate or generate a new self-signed certificate.</p>
+            </div>
+        </div>
+        {% elif cert_info and cert_info.expiring_soon %}
+        <div class="warning-banner">
+            <span class="warning-icon">&#9888;</span>
+            <div class="warning-content">
+                <h4>Certificate Expiring Soon</h4>
+                <p>The SSL certificate will expire in {{ cert_info.days_until_expiry }} days. Consider renewing it before it expires.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if cert_info and cert_info.is_self_signed %}
+        <div class="warning-banner">
+            <span class="warning-icon">&#128274;</span>
+            <div class="warning-content">
+                <h4>Self-Signed Certificate</h4>
+                <p>The current certificate is self-signed. Browsers will show a security warning. For production use, upload a certificate from a trusted Certificate Authority.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Current Certificate Info -->
+        {% if cert_info %}
+        <div class="cert-info-card">
+            <h3>&#128274; Current Certificate</h3>
+            <div class="cert-detail-row">
+                <span class="cert-detail-label">Common Name (CN)</span>
+                <span class="cert-detail-value">{{ cert_info.common_name }}</span>
+            </div>
+            <div class="cert-detail-row">
+                <span class="cert-detail-label">Organization</span>
+                <span class="cert-detail-value">{{ cert_info.organization or 'N/A' }}</span>
+            </div>
+            <div class="cert-detail-row">
+                <span class="cert-detail-label">Valid From</span>
+                <span class="cert-detail-value">{{ cert_info.not_before }}</span>
+            </div>
+            <div class="cert-detail-row">
+                <span class="cert-detail-label">Valid Until</span>
+                <span class="cert-detail-value">{{ cert_info.not_after }}</span>
+            </div>
+            <div class="cert-detail-row">
+                <span class="cert-detail-label">Type</span>
+                <span class="cert-detail-value">{{ 'Self-Signed' if cert_info.is_self_signed else 'CA-Signed' }}</span>
+            </div>
+            {% if cert_info.san %}
+            <div class="cert-detail-row">
+                <span class="cert-detail-label">Subject Alt Names</span>
+                <span class="cert-detail-value">{{ cert_info.san | join(', ') }}</span>
+            </div>
+            {% endif %}
+            <div class="cert-detail-row">
+                <span class="cert-detail-label">SHA-256 Fingerprint</span>
+                <span class="cert-detail-value fingerprint">{{ cert_info.fingerprint_sha256 }}</span>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-warning" onclick="generateSelfSigned()">Generate New Self-Signed</button>
+                <button class="btn btn-danger" onclick="deleteCertificate()">Delete Certificate</button>
+            </div>
+        </div>
+        {% else %}
+        <div class="cert-info-card">
+            <h3>&#128274; No Certificate Found</h3>
+            <p>No SSL certificate is currently installed. A self-signed certificate will be generated automatically when the service starts, or you can generate one now.</p>
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="generateSelfSigned()">Generate Self-Signed Certificate</button>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Upload New Certificate -->
+        <div class="upload-section">
+            <h3>Upload Custom Certificate</h3>
+            <p class="subtitle">Upload a certificate from a trusted Certificate Authority for production use.</p>
+
+            <form class="upload-form" id="uploadForm" onsubmit="uploadCertificate(event)">
+                <div class="form-row">
+                    <label for="certificate">Certificate (PEM format)</label>
+                    <textarea id="certificate" name="certificate" placeholder="-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----"></textarea>
+                    <small>Paste the certificate in PEM format, including the BEGIN and END markers.</small>
+                </div>
+                <div class="form-row">
+                    <label for="private_key">Private Key (PEM format)</label>
+                    <textarea id="private_key" name="private_key" placeholder="-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----"></textarea>
+                    <small>Paste the private key in PEM format. The key must not be password-protected.</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Upload Certificate</button>
+                    <button type="button" class="btn" onclick="clearForm()">Clear</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Restart Notice -->
+        <div class="cert-info-card">
+            <h3>&#128260; Important Note</h3>
+            <p>After uploading or generating a new certificate, you must <strong>restart the FireLens service</strong> for the changes to take effect:</p>
+            <code style="display: block; background: var(--bg-primary); padding: 12px; border-radius: 4px; margin-top: 8px;">
+                sudo systemctl restart FireLens
+            </code>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <script src="/static/js/admin-theme.js"></script>
+    <script>
+        // Pass template variables to JavaScript
+        window.adminSslConfig = {
+            csrfToken: {{ csrf_token | tojson }}
+        };
+    </script>
+    <script src="/static/js/admin-ssl.js"></script>
+</body>
+</html>

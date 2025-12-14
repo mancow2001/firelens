@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        systemctl stop firelens.service || true
+        systemctl disable firelens.service || true
+        ;;
+esac
+
+#DEBHELPER#
+exit 0

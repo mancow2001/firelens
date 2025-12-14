@@ -2,7 +2,7 @@
 
 A comprehensive real-time monitoring solution for **multiple firewall vendors** including Palo Alto Networks, Fortinet FortiGate, and Cisco Firepower. Features persistent data storage, enhanced web dashboard, intelligent timezone handling, and **per-second session sampling for accurate throughput metrics**.
 
-## Version 1.0.0 (Initial Stable Release)
+## Version 1.0.30 (Initial Stable Release)
 
 ### **Core Features**
 - **Multi-Vendor Firewall Support**: Monitor firewalls from multiple vendors

@@ -1607,9 +1607,9 @@ class MultiFirewallCollector:
             basic_status = {
                 "authenticated": collector.authenticated,
                 "running": thread_alive,  # Used by admin dashboard
-                "last_poll": collector.last_poll_time.isoformat()
-                if collector.last_poll_time
-                else None,
+                "last_poll": (
+                    collector.last_poll_time.isoformat() if collector.last_poll_time else None
+                ),
                 "poll_count": collector.poll_count,
                 "thread_alive": thread_alive,
                 "config": {

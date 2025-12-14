@@ -83,6 +83,7 @@ class TestHealthEndpoint(unittest.TestCase):
     def tearDown(self):
         """Clean up"""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_health_endpoint_returns_data(self):
@@ -98,21 +99,11 @@ class TestHealthEndpoint(unittest.TestCase):
                 "rss_mb": 100.0,
                 "percent": 10.5,
             },
-            "queue": {
-                "size": 0,
-                "max_size": 1000,
-                "drops": 0
-            },
-            "database": {
-                "connection_pool_size": 0
-            },
-            "cache": {
-                "entries": 0
-            },
+            "queue": {"size": 0, "max_size": 1000, "drops": 0},
+            "database": {"connection_pool_size": 0},
+            "cache": {"entries": 0},
             "issues": [],
-            "gc_stats": {
-                "collections": (0, 0, 0)
-            }
+            "gc_stats": {"collections": (0, 0, 0)},
         }
 
         # Verify structure
@@ -128,7 +119,7 @@ class TestHealthEndpoint(unittest.TestCase):
         # Test warning conditions
         mem_percent = 85  # > 80%
         queue_size = 850  # > 800
-        queue_drops = 50   # < 100
+        queue_drops = 50  # < 100
 
         issues = []
         status = "healthy"
@@ -188,8 +179,7 @@ class TestDashboardCaching(unittest.TestCase):
             cache.set(cache_key, result)
 
         # Should only have 1 database query
-        self.assertEqual(len(db_queries), 1,
-                        "Should only query database once when cached")
+        self.assertEqual(len(db_queries), 1, "Should only query database once when cached")
 
     def test_cache_refreshes_after_ttl(self):
         """Test that cache refreshes data after TTL expires"""
@@ -217,10 +207,8 @@ class TestDashboardCaching(unittest.TestCase):
             result2 = mock_query()
             cache.set("key", result2)
 
-        self.assertEqual(query_count[0], 2,
-                        "Should query twice after cache expiration")
-        self.assertNotEqual(result1, result2,
-                           "Results should be different after refresh")
+        self.assertEqual(query_count[0], 2, "Should query twice after cache expiration")
+        self.assertNotEqual(result1, result2, "Results should be different after refresh")
 
 
 class TestWebDashboardInitialization(unittest.TestCase):
@@ -233,9 +221,9 @@ class TestWebDashboardInitialization(unittest.TestCase):
 
         cache = SimpleCache(ttl_seconds=30)
         self.assertIsNotNone(cache)
-        self.assertTrue(hasattr(cache, 'get'))
-        self.assertTrue(hasattr(cache, 'set'))
-        self.assertTrue(hasattr(cache, 'clear'))
+        self.assertTrue(hasattr(cache, "get"))
+        self.assertTrue(hasattr(cache, "set"))
+        self.assertTrue(hasattr(cache, "clear"))
 
 
 class TestAutoRegistration(unittest.TestCase):
@@ -281,8 +269,7 @@ class TestAutoRegistration(unittest.TestCase):
             # Use cache
             cached_data = cache.get("dashboard")
 
-        self.assertIsNone(cached_data,
-                         "Cache should be bypassed when new firewalls are registered")
+        self.assertIsNone(cached_data, "Cache should be bypassed when new firewalls are registered")
 
     def test_no_new_firewalls_uses_cache(self):
         """Test that dashboard uses cache when no new firewalls"""
@@ -301,10 +288,8 @@ class TestAutoRegistration(unittest.TestCase):
         else:
             cached_data = cache.get("dashboard")
 
-        self.assertIsNotNone(cached_data,
-                            "Cache should be used when no new registrations")
-        self.assertEqual(cached_data, cache_data,
-                        "Should return cached data")
+        self.assertIsNotNone(cached_data, "Cache should be used when no new registrations")
+        self.assertEqual(cached_data, cache_data, "Should return cached data")
 
     def test_registration_detection_logic(self):
         """Test logic for detecting new firewall registrations"""
@@ -320,14 +305,10 @@ class TestAutoRegistration(unittest.TestCase):
             if fw_name not in db_firewall_names:
                 newly_registered.append(fw_name)
 
-        self.assertEqual(len(newly_registered), 1,
-                        "Should detect 1 new firewall")
-        self.assertIn("fw3", newly_registered,
-                     "fw3 should be detected as new")
-        self.assertNotIn("fw1", newly_registered,
-                        "fw1 should not be detected (already in DB)")
-        self.assertNotIn("fw2", newly_registered,
-                        "fw2 should not be detected (already in DB)")
+        self.assertEqual(len(newly_registered), 1, "Should detect 1 new firewall")
+        self.assertIn("fw3", newly_registered, "fw3 should be detected as new")
+        self.assertNotIn("fw1", newly_registered, "fw1 should not be detected (already in DB)")
+        self.assertNotIn("fw2", newly_registered, "fw2 should not be detected (already in DB)")
 
 
 class TestPasswordValidation(unittest.TestCase):
@@ -336,6 +317,7 @@ class TestPasswordValidation(unittest.TestCase):
     def test_validate_password_complexity_import(self):
         """Test that validate_password_complexity can be imported"""
         from firelens.web_dashboard import validate_password_complexity
+
         self.assertTrue(callable(validate_password_complexity))
 
     def test_password_too_short(self):
@@ -403,7 +385,9 @@ class TestPasswordValidation(unittest.TestCase):
 
         for password in valid_passwords:
             is_valid, error = validate_password_complexity(password)
-            self.assertTrue(is_valid, f"Password '{password}' should be valid but got error: {error}")
+            self.assertTrue(
+                is_valid, f"Password '{password}' should be valid but got error: {error}"
+            )
             self.assertEqual(error, "")
 
     def test_all_special_characters_accepted(self):
@@ -441,15 +425,15 @@ class TestPasswordConstants(unittest.TestCase):
 
         self.assertIsInstance(MIN_PASSWORD_LENGTH, int)
         self.assertGreaterEqual(MIN_PASSWORD_LENGTH, 8)  # Should be at least 8
-        self.assertLessEqual(MIN_PASSWORD_LENGTH, 20)    # But not unreasonably long
+        self.assertLessEqual(MIN_PASSWORD_LENGTH, 20)  # But not unreasonably long
 
     def test_max_password_length_defined(self):
         """Test MAX_PASSWORD_LENGTH is defined and reasonable"""
         from firelens.web_dashboard import MAX_PASSWORD_LENGTH
 
         self.assertIsInstance(MAX_PASSWORD_LENGTH, int)
-        self.assertGreaterEqual(MAX_PASSWORD_LENGTH, 64)   # Allow reasonably long passwords
-        self.assertLessEqual(MAX_PASSWORD_LENGTH, 256)     # But have a reasonable upper limit
+        self.assertGreaterEqual(MAX_PASSWORD_LENGTH, 64)  # Allow reasonably long passwords
+        self.assertLessEqual(MAX_PASSWORD_LENGTH, 256)  # But have a reasonable upper limit
 
 
 class TestSessionManager(unittest.TestCase):
@@ -467,7 +451,7 @@ class TestSessionManager(unittest.TestCase):
         from firelens.web_dashboard import SessionManager
 
         sm = SessionManager(timeout_minutes=60)
-        token = sm.create_session("testuser", auth_method='local')
+        token = sm.create_session("testuser", auth_method="local")
 
         self.assertIsNotNone(token)
         self.assertIsInstance(token, str)
@@ -497,12 +481,12 @@ class TestSessionManager(unittest.TestCase):
         from firelens.web_dashboard import SessionManager
 
         sm = SessionManager(timeout_minutes=60)
-        token = sm.create_session("testuser", auth_method='local')
+        token = sm.create_session("testuser", auth_method="local")
 
         session = sm.get_session(token)
         self.assertIsNotNone(session)
-        self.assertEqual(session['username'], 'testuser')
-        self.assertEqual(session['auth_method'], 'local')
+        self.assertEqual(session["username"], "testuser")
+        self.assertEqual(session["auth_method"], "local")
 
     def test_destroy_session(self):
         """Test destroying a session"""
@@ -528,19 +512,22 @@ class TestSessionManager(unittest.TestCase):
         sm = SessionManager(timeout_minutes=60)
 
         # Test local auth method
-        token_local = sm.create_session("localuser", auth_method='local')
+        token_local = sm.create_session("localuser", auth_method="local")
         session_local = sm.get_session(token_local)
-        self.assertEqual(session_local['auth_method'], 'local')
+        self.assertEqual(session_local["auth_method"], "local")
 
         # Test SAML auth method
-        token_saml = sm.create_session("samluser", auth_method='saml',
-                                       saml_session_index='idx123',
-                                       saml_name_id='samluser@example.com')
+        token_saml = sm.create_session(
+            "samluser",
+            auth_method="saml",
+            saml_session_index="idx123",
+            saml_name_id="samluser@example.com",
+        )
         session_saml = sm.get_session(token_saml)
-        self.assertEqual(session_saml['auth_method'], 'saml')
-        self.assertEqual(session_saml['saml_session_index'], 'idx123')
-        self.assertEqual(session_saml['saml_name_id'], 'samluser@example.com')
+        self.assertEqual(session_saml["auth_method"], "saml")
+        self.assertEqual(session_saml["saml_session_index"], "idx123")
+        self.assertEqual(session_saml["saml_name_id"], "samluser@example.com")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

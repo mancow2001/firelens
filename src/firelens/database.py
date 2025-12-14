@@ -117,7 +117,8 @@ class EnhancedMetricsDatabase:
         """Initialize database schema with automatic migration"""
         with self._get_connection() as conn:
             # Create firewalls table FIRST (before metrics table due to foreign key)
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS firewalls (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT UNIQUE NOT NULL,
@@ -125,12 +126,14 @@ class EnhancedMetricsDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             LOG.info("✓ Firewalls table created/verified")
 
             # Create metrics table (common metrics only - vendor-specific go to vendor tables)
             # Note: New DBs get vendor-agnostic schema. Existing DBs migrated in _migrate_schema()
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     firewall_name TEXT NOT NULL,
@@ -138,33 +141,41 @@ class EnhancedMetricsDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (firewall_name) REFERENCES firewalls (name)
                 )
-            """)
+            """
+            )
             LOG.info("✓ Metrics table created/verified")
 
             # Create indexes for better query performance
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_metrics_firewall_timestamp
                 ON metrics (firewall_name, timestamp)
-            """)
+            """
+            )
 
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_metrics_timestamp
                 ON metrics (timestamp)
-            """)
+            """
+            )
             LOG.info("✓ Metrics indexes created/verified")
 
             # Create configuration table for storing runtime config
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS configuration (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             LOG.info("✓ Configuration table created/verified")
 
             # Create rename_tasks table for tracking background rename operations
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS rename_tasks (
                     id TEXT PRIMARY KEY,
                     old_name TEXT NOT NULL,
@@ -178,17 +189,20 @@ class EnhancedMetricsDatabase:
                     completed_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             LOG.debug("✓ Rename tasks table created/verified")
 
             # Create schema_version table for tracking database migrations
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS schema_version (
                     version INTEGER PRIMARY KEY,
                     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     description TEXT
                 )
-            """)
+            """
+            )
             LOG.debug("✓ Schema version table created/verified")
 
             conn.commit()
@@ -273,7 +287,8 @@ class EnhancedMetricsDatabase:
 
                     try:
                         # Create new metrics table with only common fields
-                        conn.execute("""
+                        conn.execute(
+                            """
                             CREATE TABLE metrics_v2 (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 firewall_name TEXT NOT NULL,
@@ -281,13 +296,16 @@ class EnhancedMetricsDatabase:
                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                 FOREIGN KEY (firewall_name) REFERENCES firewalls (name)
                             )
-                        """)
+                        """
+                        )
 
                         # Copy only common data (timestamp, firewall_name, created_at)
-                        conn.execute("""
+                        conn.execute(
+                            """
                             INSERT INTO metrics_v2 (firewall_name, timestamp, created_at)
                             SELECT firewall_name, timestamp, created_at FROM metrics
-                        """)
+                        """
+                        )
 
                         # Get row counts for logging
                         cursor = conn.execute("SELECT COUNT(*) FROM metrics")
@@ -302,14 +320,18 @@ class EnhancedMetricsDatabase:
                         conn.execute("ALTER TABLE metrics_v2 RENAME TO metrics")
 
                         # Recreate indexes
-                        conn.execute("""
+                        conn.execute(
+                            """
                             CREATE INDEX IF NOT EXISTS idx_metrics_firewall_timestamp
                             ON metrics (firewall_name, timestamp)
-                        """)
-                        conn.execute("""
+                        """
+                        )
+                        conn.execute(
+                            """
                             CREATE INDEX IF NOT EXISTS idx_metrics_timestamp
                             ON metrics (timestamp)
-                        """)
+                        """
+                        )
 
                         conn.commit()
 
@@ -376,18 +398,22 @@ class EnhancedMetricsDatabase:
 
                 try:
                     # Create new table with updated schema
-                    conn.execute(f"""
+                    conn.execute(
+                        f"""
                         CREATE TABLE metrics_new (
                             {", ".join(new_columns_def)}
                         )
-                    """)
+                    """
+                    )
 
                     # Copy data from old table to new table
                     columns_str = ", ".join(columns_to_keep)
-                    conn.execute(f"""
+                    conn.execute(
+                        f"""
                         INSERT INTO metrics_new ({columns_str})
                         SELECT {columns_str} FROM metrics
-                    """)
+                    """
+                    )
 
                     # Drop old table
                     conn.execute("DROP TABLE metrics")
@@ -396,15 +422,19 @@ class EnhancedMetricsDatabase:
                     conn.execute("ALTER TABLE metrics_new RENAME TO metrics")
 
                     # Recreate indexes
-                    conn.execute("""
+                    conn.execute(
+                        """
                         CREATE INDEX IF NOT EXISTS idx_metrics_firewall_timestamp
                         ON metrics (firewall_name, timestamp)
-                    """)
+                    """
+                    )
 
-                    conn.execute("""
+                    conn.execute(
+                        """
                         CREATE INDEX IF NOT EXISTS idx_metrics_timestamp
                         ON metrics (timestamp)
-                    """)
+                    """
+                    )
 
                     conn.commit()
 
@@ -446,7 +476,8 @@ class EnhancedMetricsDatabase:
             conn.commit()
 
             # Create interface metrics table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS interface_metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     firewall_name TEXT NOT NULL,
@@ -461,10 +492,12 @@ class EnhancedMetricsDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (firewall_name) REFERENCES firewalls (name)
                 )
-            """)
+            """
+            )
 
             # Create session statistics table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS session_statistics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     firewall_name TEXT NOT NULL,
@@ -478,33 +511,41 @@ class EnhancedMetricsDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (firewall_name) REFERENCES firewalls (name)
                 )
-            """)
+            """
+            )
 
             # Create indexes for interface metrics
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_interface_metrics_firewall_interface_timestamp
                 ON interface_metrics (firewall_name, interface_name, timestamp)
-            """)
+            """
+            )
 
             # Additional optimized indexes for common query patterns
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_interface_metrics_firewall_timestamp
                 ON interface_metrics (firewall_name, timestamp DESC)
-            """)
+            """
+            )
 
             # Note: Partial indexes with datetime() are not supported in all SQLite versions
             # Removed partial indexes to ensure compatibility
 
             # Create indexes for session statistics
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_session_statistics_firewall_timestamp
                 ON session_statistics (firewall_name, timestamp)
-            """)
+            """
+            )
 
             # Create vendor-specific metrics tables for modular schema evolution
 
             # Fortinet-specific metrics table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS fortinet_metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     firewall_name TEXT NOT NULL,
@@ -516,14 +557,18 @@ class EnhancedMetricsDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (firewall_name) REFERENCES firewalls (name)
                 )
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_fortinet_metrics_fw_ts
                 ON fortinet_metrics (firewall_name, timestamp)
-            """)
+            """
+            )
 
             # Palo Alto-specific metrics table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS palo_alto_metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     firewall_name TEXT NOT NULL,
@@ -536,14 +581,18 @@ class EnhancedMetricsDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (firewall_name) REFERENCES firewalls (name)
                 )
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_palo_alto_metrics_fw_ts
                 ON palo_alto_metrics (firewall_name, timestamp)
-            """)
+            """
+            )
 
             # Cisco Firepower-specific metrics table (placeholder for future)
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS cisco_firepower_metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     firewall_name TEXT NOT NULL,
@@ -551,11 +600,14 @@ class EnhancedMetricsDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (firewall_name) REFERENCES firewalls (name)
                 )
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_cisco_firepower_metrics_fw_ts
                 ON cisco_firepower_metrics (firewall_name, timestamp)
-            """)
+            """
+            )
 
             # Migrate vendor tables - add missing columns to existing tables
             # This handles upgrades from older versions that didn't have all columns
@@ -574,12 +626,14 @@ class EnhancedMetricsDatabase:
             conn.commit()
 
             # Check if new tables were created
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT name FROM sqlite_master
                 WHERE type='table'
                 AND name IN ('interface_metrics', 'session_statistics',
                             'fortinet_metrics', 'palo_alto_metrics', 'cisco_firepower_metrics')
-            """)
+            """
+            )
             new_tables = [row[0] for row in cursor.fetchall()]
 
             if new_tables:
@@ -1126,9 +1180,9 @@ class EnhancedMetricsDatabase:
                 "current_table": row[4],
                 "total_rows": total_rows,
                 "processed_rows": processed_rows,
-                "progress_percent": round(processed_rows / total_rows * 100, 1)
-                if total_rows > 0
-                else 100,
+                "progress_percent": (
+                    round(processed_rows / total_rows * 100, 1) if total_rows > 0 else 100
+                ),
                 "error_message": row[7],
                 "started_at": row[8],
                 "completed_at": row[9],
@@ -1728,7 +1782,8 @@ class EnhancedMetricsDatabase:
         """Get list of all registered firewalls with hardware info"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT f.name, f.host, f.created_at, f.updated_at,
                            f.model, f.family, f.platform_family, f.serial,
                            f.hostname, f.sw_version,
@@ -1740,7 +1795,8 @@ class EnhancedMetricsDatabase:
                              f.model, f.family, f.platform_family, f.serial,
                              f.hostname, f.sw_version
                     ORDER BY f.name
-                """)
+                """
+                )
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
             LOG.error(f"Failed to retrieve firewalls: {e}")
@@ -1755,18 +1811,22 @@ class EnhancedMetricsDatabase:
                 total_metrics = cursor.fetchone()["total_metrics"]
 
                 # Get metrics per firewall
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT firewall_name, COUNT(*) as count
                     FROM metrics
                     GROUP BY firewall_name
-                """)
+                """
+                )
                 firewall_counts = {row["firewall_name"]: row["count"] for row in cursor.fetchall()}
 
                 # Get date range
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT MIN(timestamp) as earliest, MAX(timestamp) as latest
                     FROM metrics
-                """)
+                """
+                )
                 date_range = cursor.fetchone()
 
                 # Get interface metrics count

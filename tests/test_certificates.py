@@ -28,6 +28,7 @@ from firelens.cert_manager import CertificateManager, CertificateInfo, AddCertif
 # Test Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def temp_certs_dir():
     """Create a temporary directory for certificates"""
@@ -43,18 +44,11 @@ def cert_manager(temp_certs_dir):
 
 
 def generate_test_certificate(
-    common_name: str = "Test CA",
-    days_valid: int = 365,
-    is_ca: bool = True,
-    expired: bool = False
+    common_name: str = "Test CA", days_valid: int = 365, is_ca: bool = True, expired: bool = False
 ) -> bytes:
     """Generate a test X.509 certificate in PEM format"""
     # Generate key
-    key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048, backend=default_backend())
 
     # Set validity period
     if expired:
@@ -65,11 +59,13 @@ def generate_test_certificate(
         not_after = datetime.now(timezone.utc) + timedelta(days=days_valid)
 
     # Build certificate
-    subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Test Org"),
-        x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-    ])
+    subject = issuer = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Test Org"),
+            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
+        ]
+    )
 
     builder = x509.CertificateBuilder()
     builder = builder.subject_name(subject)
@@ -92,15 +88,13 @@ def generate_test_certificate(
 
 def generate_test_certificate_der(common_name: str = "Test CA DER") -> bytes:
     """Generate a test X.509 certificate in DER format"""
-    key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048, backend=default_backend())
 
-    subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-    ])
+    subject = issuer = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
+        ]
+    )
 
     builder = x509.CertificateBuilder()
     builder = builder.subject_name(subject)
@@ -123,6 +117,7 @@ def generate_test_certificate_der(common_name: str = "Test CA DER") -> bytes:
 # Test: Certificate Manager Initialization
 # =============================================================================
 
+
 class TestCertificateManagerInit:
     """Tests for CertificateManager initialization"""
 
@@ -144,6 +139,7 @@ class TestCertificateManagerInit:
 # =============================================================================
 # Test: Certificate Format Detection
 # =============================================================================
+
 
 class TestFormatDetection:
     """Tests for certificate format detection"""
@@ -168,6 +164,7 @@ class TestFormatDetection:
 # Test: DER to PEM Conversion
 # =============================================================================
 
+
 class TestDerToPemConversion:
     """Tests for DER to PEM format conversion"""
 
@@ -188,6 +185,7 @@ class TestDerToPemConversion:
 # =============================================================================
 # Test: Bundle Extraction
 # =============================================================================
+
 
 class TestBundleExtraction:
     """Tests for extracting certificates from bundles"""
@@ -225,6 +223,7 @@ class TestBundleExtraction:
 # =============================================================================
 # Test: Certificate Parsing
 # =============================================================================
+
 
 class TestCertificateParsing:
     """Tests for certificate parsing and info extraction"""
@@ -280,6 +279,7 @@ class TestCertificateParsing:
 # =============================================================================
 # Test: Add Certificate
 # =============================================================================
+
 
 class TestAddCertificate:
     """Tests for adding certificates"""
@@ -354,6 +354,7 @@ class TestAddCertificate:
 # Test: Delete Certificate
 # =============================================================================
 
+
 class TestDeleteCertificate:
     """Tests for deleting certificates"""
 
@@ -381,6 +382,7 @@ class TestDeleteCertificate:
 # =============================================================================
 # Test: List Certificates
 # =============================================================================
+
 
 class TestListCertificates:
     """Tests for listing certificates"""
@@ -414,14 +416,13 @@ class TestListCertificates:
 # Test: Get Certificate
 # =============================================================================
 
+
 class TestGetCertificate:
     """Tests for getting individual certificate info"""
 
     def test_get_existing(self, cert_manager):
         """Test getting an existing certificate"""
-        result = cert_manager.add_certificate(
-            generate_test_certificate("Get Test"), "test.pem"
-        )
+        result = cert_manager.add_certificate(generate_test_certificate("Get Test"), "test.pem")
         cert_id = result.certificates[0].id
 
         info = cert_manager.get_certificate(cert_id)
@@ -437,6 +438,7 @@ class TestGetCertificate:
 # =============================================================================
 # Test: CA Bundle Generation
 # =============================================================================
+
 
 class TestCABundleGeneration:
     """Tests for CA bundle generation"""
@@ -486,6 +488,7 @@ class TestCABundleGeneration:
 # Test: Certificate Statistics
 # =============================================================================
 
+
 class TestCertificateStatistics:
     """Tests for certificate statistics"""
 
@@ -525,6 +528,7 @@ class TestCertificateStatistics:
 # Test: Certificate Count
 # =============================================================================
 
+
 class TestCertificateCount:
     """Tests for certificate counting"""
 
@@ -543,6 +547,7 @@ class TestCertificateCount:
 # =============================================================================
 # Test: CertificateInfo Serialization
 # =============================================================================
+
 
 class TestCertificateInfoSerialization:
     """Tests for CertificateInfo serialization"""
@@ -563,6 +568,7 @@ class TestCertificateInfoSerialization:
 # =============================================================================
 # Test: AddCertificateResult
 # =============================================================================
+
 
 class TestAddCertificateResult:
     """Tests for AddCertificateResult dataclass"""

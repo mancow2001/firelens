@@ -24,12 +24,10 @@ class TestInterfaceMonitorMemoryFixes(unittest.TestCase):
             samples.append(i)
 
         # Should be limited to maxlen
-        self.assertEqual(len(samples), max_samples,
-                        "Deque should enforce maxlen")
+        self.assertEqual(len(samples), max_samples, "Deque should enforce maxlen")
 
         # Oldest items should be removed
-        self.assertEqual(samples[0], 500 - max_samples,
-                        "Oldest items should be evicted")
+        self.assertEqual(samples[0], 500 - max_samples, "Oldest items should be evicted")
 
     def test_deque_no_memory_fragmentation(self):
         """Test that deque doesn't create new objects on append"""
@@ -40,19 +38,20 @@ class TestInterfaceMonitorMemoryFixes(unittest.TestCase):
 
         # Fill the deque
         for i in range(max_samples):
-            samples.append({'timestamp': datetime.now(), 'value': i})
+            samples.append({"timestamp": datetime.now(), "value": i})
 
         # Get initial size
         initial_size = sys.getsizeof(samples)
 
         # Add many more items (should not grow)
         for i in range(1000):
-            samples.append({'timestamp': datetime.now(), 'value': i})
+            samples.append({"timestamp": datetime.now(), "value": i})
 
         # Size should be similar (within reasonable margin)
         final_size = sys.getsizeof(samples)
-        self.assertAlmostEqual(initial_size, final_size, delta=1000,
-                              msg="Deque size should not grow significantly")
+        self.assertAlmostEqual(
+            initial_size, final_size, delta=1000, msg="Deque size should not grow significantly"
+        )
 
 
 class TestQueueSizeLimits(unittest.TestCase):
@@ -91,7 +90,7 @@ class TestQueueSizeLimits(unittest.TestCase):
 class TestRequestsSessionCleanup(unittest.TestCase):
     """Test requests.Session cleanup"""
 
-    @patch('firelens.collectors.requests.Session')
+    @patch("firelens.collectors.requests.Session")
     def test_panos_client_close(self, mock_session_class):
         """Test that FireLensClient.close() closes the session"""
         from firelens.collectors import FireLensClient
@@ -106,7 +105,7 @@ class TestRequestsSessionCleanup(unittest.TestCase):
         client.close()
         mock_session.close.assert_called_once()
 
-    @patch('firelens.collectors.requests.Session')
+    @patch("firelens.collectors.requests.Session")
     def test_panos_client_del_cleanup(self, mock_session_class):
         """Test that __del__ cleans up session"""
         from firelens.collectors import FireLensClient
@@ -126,7 +125,7 @@ class TestRequestsSessionCleanup(unittest.TestCase):
 class TestGarbageCollection(unittest.TestCase):
     """Test garbage collection is called periodically"""
 
-    @patch('gc.collect')
+    @patch("gc.collect")
     def test_gc_called_periodically(self, mock_gc_collect):
         """Test that gc.collect() is called in monitoring loop"""
         # This tests the main.py monitoring loop behavior
@@ -170,6 +169,7 @@ class TestMemoryMonitoring(unittest.TestCase):
         """Test that psutil can get memory info"""
         try:
             import psutil
+
             process = psutil.Process()
             mem_info = process.memory_info()
 
@@ -225,9 +225,10 @@ class TestDequeVsListPerformance(unittest.TestCase):
         deque_time = time.time() - start
 
         # Deque should be faster (or at least not much slower)
-        self.assertLess(deque_time, list_time * 2,
-                       "Deque should be comparable or faster than list recreation")
+        self.assertLess(
+            deque_time, list_time * 2, "Deque should be comparable or faster than list recreation"
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

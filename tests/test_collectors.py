@@ -17,8 +17,7 @@ class TestCollectorQueueLimits(unittest.TestCase):
         # Simulate MultiFirewallCollector queue
         metrics_queue = Queue(maxsize=1000)
 
-        self.assertEqual(metrics_queue.maxsize, 1000,
-                        "Queue should have maxsize of 1000")
+        self.assertEqual(metrics_queue.maxsize, 1000, "Queue should have maxsize of 1000")
 
     def test_queue_put_with_timeout_on_full(self):
         """Test that put with timeout handles full queue"""
@@ -48,8 +47,7 @@ class TestCollectorQueueLimits(unittest.TestCase):
             except (Full, Exception):
                 queue_full_warnings += 1
 
-        self.assertGreater(queue_full_warnings, 0,
-                          "Should have recorded overflow warnings")
+        self.assertGreater(queue_full_warnings, 0, "Should have recorded overflow warnings")
 
     def test_queue_size_tracking(self):
         """Test that queue size can be tracked"""
@@ -75,15 +73,14 @@ class TestCollectorQueueLimits(unittest.TestCase):
             except Full:
                 break
 
-        self.assertEqual(added, 100,
-                        "Should only be able to add up to maxsize")
+        self.assertEqual(added, 100, "Should only be able to add up to maxsize")
 
 
 class TestEnhancedFirewallCollectorCleanup(unittest.TestCase):
     """Test collector cleanup methods"""
 
-    @patch('firelens.collectors.requests.Session')
-    @patch('firelens.collectors.InterfaceMonitor')
+    @patch("firelens.collectors.requests.Session")
+    @patch("firelens.collectors.InterfaceMonitor")
     def test_collector_stop_closes_session(self, mock_iface_monitor, mock_session_class):
         """Test that collector.stop() closes the requests session"""
         from firelens.collectors import EnhancedFirewallCollector
@@ -101,18 +98,13 @@ class TestEnhancedFirewallCollectorCleanup(unittest.TestCase):
         mock_session_class.return_value = mock_session
 
         # Create collector
-        collector = EnhancedFirewallCollector(
-            "test_fw",
-            mock_config,
-            None
-        )
+        collector = EnhancedFirewallCollector("test_fw", mock_config, None)
 
         # Stop collector
         collector.stop()
 
         # Should have called session.close()
-        self.assertTrue(mock_session.close.called,
-                       "Session close should be called on stop")
+        self.assertTrue(mock_session.close.called, "Session close should be called on stop")
 
     def test_collector_cleanup_on_del(self):
         """Test that cleanup happens on collector deletion"""
@@ -133,8 +125,7 @@ class TestMultiFirewallCollectorMetrics(unittest.TestCase):
         for i in range(15):
             queue_full_warnings += 1
 
-        self.assertEqual(queue_full_warnings, 15,
-                        "Should track all overflow attempts")
+        self.assertEqual(queue_full_warnings, 15, "Should track all overflow attempts")
 
     def test_warning_logged_every_10th_drop(self):
         """Test that warnings are only logged every 10th drop"""
@@ -147,8 +138,7 @@ class TestMultiFirewallCollectorMetrics(unittest.TestCase):
                 log_count += 1
 
         # Should log at 1, 11, 21 = 3 times
-        self.assertEqual(log_count, 3,
-                        "Should log every 10th warning")
+        self.assertEqual(log_count, 3, "Should log every 10th warning")
 
 
 class TestCollectorThreadManagement(unittest.TestCase):
@@ -161,8 +151,7 @@ class TestCollectorThreadManagement(unittest.TestCase):
         # Create a daemon thread (like collectors do)
         thread = threading.Thread(target=lambda: None, daemon=True)
 
-        self.assertTrue(thread.daemon,
-                       "Collector threads should be daemon threads")
+        self.assertTrue(thread.daemon, "Collector threads should be daemon threads")
 
     def test_thread_join_timeout(self):
         """Test that thread join has timeout to prevent hanging"""
@@ -180,8 +169,7 @@ class TestCollectorThreadManagement(unittest.TestCase):
         elapsed = time.time() - start
 
         # Should timeout quickly, not wait 10 seconds
-        self.assertLess(elapsed, 0.5,
-                       "Thread join should timeout quickly")
+        self.assertLess(elapsed, 0.5, "Thread join should timeout quickly")
 
 
 class TestCollectorErrorHandling(unittest.TestCase):
@@ -199,8 +187,7 @@ class TestCollectorErrorHandling(unittest.TestCase):
         except (Full, Exception):
             exception_caught = True
 
-        self.assertTrue(exception_caught,
-                       "Should catch exception when queue is full")
+        self.assertTrue(exception_caught, "Should catch exception when queue is full")
 
     def test_collector_continues_after_queue_full(self):
         """Test that collector continues even if queue is full"""
@@ -229,7 +216,7 @@ class TestModelDetection(unittest.TestCase):
         """Test successful parsing of hardware info from system info XML"""
         from firelens.collectors import parse_system_info_hardware
 
-        xml_response = '''<?xml version="1.0"?>
+        xml_response = """<?xml version="1.0"?>
         <response status="success">
             <result>
                 <system>
@@ -241,42 +228,42 @@ class TestModelDetection(unittest.TestCase):
                     <sw-version>11.0.3</sw-version>
                 </system>
             </result>
-        </response>'''
+        </response>"""
 
         hardware_info = parse_system_info_hardware(xml_response)
 
-        self.assertEqual(hardware_info['model'], 'PA-3430')
-        self.assertEqual(hardware_info['family'], '3000')
-        self.assertEqual(hardware_info['platform_family'], 'pa-3400-series')
-        self.assertEqual(hardware_info['serial'], '001234567890')
-        self.assertEqual(hardware_info['hostname'], 'datacenter-fw')
-        self.assertEqual(hardware_info['sw_version'], '11.0.3')
+        self.assertEqual(hardware_info["model"], "PA-3430")
+        self.assertEqual(hardware_info["family"], "3000")
+        self.assertEqual(hardware_info["platform_family"], "pa-3400-series")
+        self.assertEqual(hardware_info["serial"], "001234567890")
+        self.assertEqual(hardware_info["hostname"], "datacenter-fw")
+        self.assertEqual(hardware_info["sw_version"], "11.0.3")
 
     def test_parse_system_info_hardware_missing_fields(self):
         """Test parsing with missing fields returns empty strings"""
         from firelens.collectors import parse_system_info_hardware
 
-        xml_response = '''<?xml version="1.0"?>
+        xml_response = """<?xml version="1.0"?>
         <response status="success">
             <result>
                 <system>
                     <model>PA-3430</model>
                 </system>
             </result>
-        </response>'''
+        </response>"""
 
         hardware_info = parse_system_info_hardware(xml_response)
 
-        self.assertEqual(hardware_info['model'], 'PA-3430')
-        self.assertEqual(hardware_info['family'], '')
-        self.assertEqual(hardware_info['platform_family'], '')
-        self.assertEqual(hardware_info['serial'], '')
+        self.assertEqual(hardware_info["model"], "PA-3430")
+        self.assertEqual(hardware_info["family"], "")
+        self.assertEqual(hardware_info["platform_family"], "")
+        self.assertEqual(hardware_info["serial"], "")
 
     def test_parse_system_info_hardware_invalid_xml(self):
         """Test parsing invalid XML returns empty dict"""
         from firelens.collectors import parse_system_info_hardware
 
-        hardware_info = parse_system_info_hardware('invalid xml')
+        hardware_info = parse_system_info_hardware("invalid xml")
 
         self.assertEqual(hardware_info, {})
 
@@ -288,80 +275,94 @@ class TestAffectedModels(unittest.TestCase):
         """Test PA-400 series models are detected as affected"""
         from firelens.collectors import is_affected_by_dp_core_issue
 
-        affected_models = ['PA-410', 'PA-415', 'PA-415-5G', 'PA-440', 'PA-445',
-                          'PA-450', 'PA-450R', 'PA-455', 'PA-460']
+        affected_models = [
+            "PA-410",
+            "PA-415",
+            "PA-415-5G",
+            "PA-440",
+            "PA-445",
+            "PA-450",
+            "PA-450R",
+            "PA-455",
+            "PA-460",
+        ]
 
         for model in affected_models:
-            self.assertTrue(is_affected_by_dp_core_issue(model),
-                          f"{model} should be detected as affected")
+            self.assertTrue(
+                is_affected_by_dp_core_issue(model), f"{model} should be detected as affected"
+            )
 
     def test_is_affected_by_dp_core_issue_pa1400_series(self):
         """Test PA-1400 series models are detected as affected"""
         from firelens.collectors import is_affected_by_dp_core_issue
 
-        affected_models = ['PA-1410', 'PA-1420']
+        affected_models = ["PA-1410", "PA-1420"]
 
         for model in affected_models:
-            self.assertTrue(is_affected_by_dp_core_issue(model),
-                          f"{model} should be detected as affected")
+            self.assertTrue(
+                is_affected_by_dp_core_issue(model), f"{model} should be detected as affected"
+            )
 
     def test_is_affected_by_dp_core_issue_pa3400_series(self):
         """Test PA-3400 series models are detected as affected"""
         from firelens.collectors import is_affected_by_dp_core_issue
 
-        affected_models = ['PA-3410', 'PA-3420', 'PA-3430', 'PA-3440']
+        affected_models = ["PA-3410", "PA-3420", "PA-3430", "PA-3440"]
 
         for model in affected_models:
-            self.assertTrue(is_affected_by_dp_core_issue(model),
-                          f"{model} should be detected as affected")
+            self.assertTrue(
+                is_affected_by_dp_core_issue(model), f"{model} should be detected as affected"
+            )
 
     def test_is_affected_by_dp_core_issue_pa5400_series(self):
         """Test PA-5400 series models are detected as affected"""
         from firelens.collectors import is_affected_by_dp_core_issue
 
-        affected_models = ['PA-5410', 'PA-5420', 'PA-5430', 'PA-5440', 'PA-5445']
+        affected_models = ["PA-5410", "PA-5420", "PA-5430", "PA-5440", "PA-5445"]
 
         for model in affected_models:
-            self.assertTrue(is_affected_by_dp_core_issue(model),
-                          f"{model} should be detected as affected")
+            self.assertTrue(
+                is_affected_by_dp_core_issue(model), f"{model} should be detected as affected"
+            )
 
     def test_is_affected_by_dp_core_issue_unaffected_models(self):
         """Test that non-affected models return False"""
         from firelens.collectors import is_affected_by_dp_core_issue
 
-        unaffected_models = ['PA-220', 'PA-850', 'PA-5220', 'VM-50', 'PA-7080']
+        unaffected_models = ["PA-220", "PA-850", "PA-5220", "VM-50", "PA-7080"]
 
         for model in unaffected_models:
-            self.assertFalse(is_affected_by_dp_core_issue(model),
-                           f"{model} should NOT be detected as affected")
+            self.assertFalse(
+                is_affected_by_dp_core_issue(model), f"{model} should NOT be detected as affected"
+            )
 
     def test_get_core_architecture_pa3430(self):
         """Test core architecture retrieval for PA-3430"""
         from firelens.collectors import get_core_architecture
 
-        arch = get_core_architecture('PA-3430')
+        arch = get_core_architecture("PA-3430")
 
         self.assertIsNotNone(arch)
-        self.assertEqual(arch['total_cores'], 20)
-        self.assertEqual(arch['mgmt_cores'], 4)
-        self.assertEqual(arch['dp_cores'], 16)
+        self.assertEqual(arch["total_cores"], 20)
+        self.assertEqual(arch["mgmt_cores"], 4)
+        self.assertEqual(arch["dp_cores"], 16)
 
     def test_get_core_architecture_pa5445(self):
         """Test core architecture retrieval for PA-5445"""
         from firelens.collectors import get_core_architecture
 
-        arch = get_core_architecture('PA-5445')
+        arch = get_core_architecture("PA-5445")
 
         self.assertIsNotNone(arch)
-        self.assertEqual(arch['total_cores'], 64)
-        self.assertEqual(arch['mgmt_cores'], 12)
-        self.assertEqual(arch['dp_cores'], 52)
+        self.assertEqual(arch["total_cores"], 64)
+        self.assertEqual(arch["mgmt_cores"], 12)
+        self.assertEqual(arch["dp_cores"], 52)
 
     def test_get_core_architecture_unknown_model(self):
         """Test core architecture retrieval for unknown model returns None"""
         from firelens.collectors import get_core_architecture
 
-        arch = get_core_architecture('PA-9999')
+        arch = get_core_architecture("PA-9999")
 
         self.assertIsNone(arch)
 
@@ -371,17 +372,20 @@ class TestAffectedModels(unittest.TestCase):
 
         for model, arch in FIREWALL_CORE_ARCHITECTURE.items():
             # Verify all required fields exist
-            self.assertIn('total_cores', arch, f"{model} missing total_cores")
-            self.assertIn('mgmt_cores', arch, f"{model} missing mgmt_cores")
-            self.assertIn('dp_cores', arch, f"{model} missing dp_cores")
+            self.assertIn("total_cores", arch, f"{model} missing total_cores")
+            self.assertIn("mgmt_cores", arch, f"{model} missing mgmt_cores")
+            self.assertIn("dp_cores", arch, f"{model} missing dp_cores")
 
             # Verify core math is correct
-            total = arch['total_cores']
-            mgmt = arch['mgmt_cores']
-            dp = arch['dp_cores']
+            total = arch["total_cores"]
+            mgmt = arch["mgmt_cores"]
+            dp = arch["dp_cores"]
 
-            self.assertEqual(total, mgmt + dp,
-                           f"{model}: total_cores ({total}) should equal mgmt_cores ({mgmt}) + dp_cores ({dp})")
+            self.assertEqual(
+                total,
+                mgmt + dp,
+                f"{model}: total_cores ({total}) should equal mgmt_cores ({mgmt}) + dp_cores ({dp})",
+            )
 
             # Verify all values are positive
             self.assertGreater(total, 0, f"{model} total_cores must be > 0")
@@ -389,5 +393,5 @@ class TestAffectedModels(unittest.TestCase):
             self.assertGreater(dp, 0, f"{model} dp_cores must be > 0")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

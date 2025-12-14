@@ -1,4 +1,5 @@
 """Tests for configuration management"""
+
 import pytest
 import tempfile
 import os
@@ -25,7 +26,7 @@ class TestConfigSaveLoad:
             password="secret123",
             type="palo_alto",
             enabled=True,
-            poll_interval=30
+            poll_interval=30,
         )
         manager.add_firewall(fw_config)
 
@@ -62,7 +63,7 @@ class TestConfigSaveLoad:
                 host=f"https://10.0.0.{i}",
                 username="admin",
                 password="secret",
-                type="palo_alto"
+                type="palo_alto",
             )
             manager.add_firewall(fw_config)
 
@@ -86,7 +87,7 @@ class TestConfigSaveLoad:
             type="palo_alto",
             interface_monitoring=True,
             auto_discover_interfaces=True,
-            exclude_interfaces=["loopback", "vlan.1"]
+            exclude_interfaces=["loopback", "vlan.1"],
         )
         manager.add_firewall(fw_config)
 
@@ -122,28 +123,17 @@ class TestConfigValidation:
     def test_firewall_requires_name(self):
         """Test that firewall config requires a name"""
         with pytest.raises(TypeError):
-            EnhancedFirewallConfig(
-                host="https://10.0.0.1",
-                username="admin",
-                password="secret"
-            )
+            EnhancedFirewallConfig(host="https://10.0.0.1", username="admin", password="secret")
 
     def test_firewall_requires_host(self):
         """Test that firewall config requires a host"""
         with pytest.raises(TypeError):
-            EnhancedFirewallConfig(
-                name="TEST",
-                username="admin",
-                password="secret"
-            )
+            EnhancedFirewallConfig(name="TEST", username="admin", password="secret")
 
     def test_firewall_defaults(self):
         """Test firewall config default values"""
         fw = EnhancedFirewallConfig(
-            name="TEST",
-            host="https://10.0.0.1",
-            username="admin",
-            password="secret"
+            name="TEST", host="https://10.0.0.1", username="admin", password="secret"
         )
         assert fw.type == "palo_alto"
         assert fw.enabled is True

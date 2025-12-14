@@ -1,5 +1,4 @@
-# FireLens Monitor
-
+# <img width="512" height="512" alt="firelens-transparent-darkmode" src="https://github.com/user-attachments/assets/43f19d23-bd77-4cc7-93ee-bda89da918a1" />
 A comprehensive real-time monitoring solution for **multiple firewall vendors** including Palo Alto Networks, Fortinet FortiGate, and Cisco Firepower. Features persistent data storage, enhanced web dashboard, intelligent timezone handling, and **per-second session sampling for accurate throughput metrics**.
 
 ## Version 1.0.30 (Initial Stable Release)
@@ -551,6 +550,39 @@ docker-compose up -d
 
 # 4. Access dashboard at https://localhost:8443
 ```
+  ### Via DEB Package (Debian/Ubuntu)
+  ```bash
+  # 1. Download the latest .deb from GitHub Releases
+  wget https://github.com/mancow2001/FireLens/releases/latest/download/firelens-monitor_<version>_all.deb
+
+  # 2. Install the package
+  sudo apt install ./firelens-monitor_<version>_all.deb
+
+  # 3. Edit configuration
+  sudo nano /etc/firelens/config.yaml
+
+  # 4. Start and enable the service
+  sudo systemctl enable --now firelens
+
+  # 5. Access dashboard at https://localhost:8443
+```
+
+### Via RPM Package (RHEL/CentOS/Fedora)
+```bash
+# 1. Download the latest .rpm from GitHub Releases
+wget https://github.com/mancow2001/FireLens/releases/latest/download/firelens-monitor-<version>.x86_64.rpm
+
+# 2. Install the package (use yum for older systems)
+sudo dnf install ./firelens-monitor-<version>.x86_64.rpm
+
+# 3. Edit configuration
+sudo nano /etc/firelens/config.yaml
+
+# 4. Start and enable the service
+sudo systemctl enable --now firelens
+
+# 5. Access dashboard at https://localhost:8443
+```
 
 ### From Source
 ```bash
@@ -574,5 +606,3 @@ firelens --config config.yaml
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
-
-**Happy Multi-Vendor Firewall Monitoring!**

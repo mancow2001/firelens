@@ -6,7 +6,7 @@ real-time CPU, throughput, packet buffer, interface bandwidth, and session
 statistics from multiple firewalls simultaneously.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.30"
 __author__ = "FireLens Team"
 __license__ = "MIT"
 

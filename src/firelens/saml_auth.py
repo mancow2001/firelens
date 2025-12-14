@@ -3,14 +3,15 @@
 FireLens Monitor - SAML 2.0 Authentication Module
 Provides SAML authentication support for Okta, Azure AD, and other SAML 2.0 IdPs
 """
+
 import logging
-from typing import Optional, Dict, Any, Tuple
-from urllib.parse import urlparse
+from typing import Any, Dict, Optional, Tuple
 
 try:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
     from onelogin.saml2.settings import OneLogin_Saml2_Settings
     from onelogin.saml2.utils import OneLogin_Saml2_Utils
+
     SAML_AVAILABLE = True
 except ImportError:
     SAML_AVAILABLE = False
@@ -53,11 +54,11 @@ class SAMLAuthHandler:
             return
 
         required_fields = [
-            ('idp_entity_id', 'IdP Entity ID'),
-            ('idp_sso_url', 'IdP SSO URL'),
-            ('idp_x509_cert', 'IdP X.509 Certificate'),
-            ('sp_entity_id', 'SP Entity ID'),
-            ('sp_acs_url', 'SP ACS URL'),
+            ("idp_entity_id", "IdP Entity ID"),
+            ("idp_sso_url", "IdP SSO URL"),
+            ("idp_x509_cert", "IdP X.509 Certificate"),
+            ("sp_entity_id", "SP Entity ID"),
+            ("sp_acs_url", "SP ACS URL"),
         ]
 
         missing = []
@@ -76,11 +77,11 @@ class SAMLAuthHandler:
             return False
         # Check minimum required config
         return bool(
-            self.config.idp_entity_id and
-            self.config.idp_sso_url and
-            self.config.idp_x509_cert and
-            self.config.sp_entity_id and
-            self.config.sp_acs_url
+            self.config.idp_entity_id
+            and self.config.idp_sso_url
+            and self.config.idp_x509_cert
+            and self.config.sp_entity_id
+            and self.config.sp_acs_url
         )
 
     def _get_saml_settings(self) -> Dict[str, Any]:
@@ -90,10 +91,6 @@ class SAMLAuthHandler:
         Returns:
             Settings dictionary compatible with OneLogin_Saml2_Auth
         """
-        # Parse SP URLs to extract components
-        sp_acs_parsed = urlparse(self.config.sp_acs_url)
-        sp_base_url = f"{sp_acs_parsed.scheme}://{sp_acs_parsed.netloc}"
-
         settings = {
             "strict": True,
             "debug": False,
@@ -101,7 +98,7 @@ class SAMLAuthHandler:
                 "entityId": self.config.sp_entity_id,
                 "assertionConsumerService": {
                     "url": self.config.sp_acs_url,
-                    "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                    "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
                 },
                 "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
             },
@@ -109,7 +106,7 @@ class SAMLAuthHandler:
                 "entityId": self.config.idp_entity_id,
                 "singleSignOnService": {
                     "url": self.config.idp_sso_url,
-                    "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+                    "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
                 },
                 "x509cert": self.config.idp_x509_cert.strip(),
             },
@@ -125,20 +122,20 @@ class SAMLAuthHandler:
                 "wantNameIdEncrypted": False,
                 "requestedAuthnContext": False,
                 "wantAttributeStatement": False,
-            }
+            },
         }
 
         # Add SLO configuration if provided
         if self.config.sp_slo_url:
             settings["sp"]["singleLogoutService"] = {
                 "url": self.config.sp_slo_url,
-                "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+                "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
             }
 
         if self.config.idp_slo_url:
             settings["idp"]["singleLogoutService"] = {
                 "url": self.config.idp_slo_url,
-                "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+                "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
             }
 
         return settings
@@ -154,12 +151,12 @@ class SAMLAuthHandler:
             Formatted request dictionary
         """
         return {
-            'https': 'on' if request_data.get('https', True) else 'off',
-            'http_host': request_data.get('http_host', ''),
-            'server_port': request_data.get('server_port', 443),
-            'script_name': request_data.get('script_name', ''),
-            'get_data': request_data.get('get_data', {}),
-            'post_data': request_data.get('post_data', {}),
+            "https": "on" if request_data.get("https", True) else "off",
+            "http_host": request_data.get("http_host", ""),
+            "server_port": request_data.get("server_port", 443),
+            "script_name": request_data.get("script_name", ""),
+            "get_data": request_data.get("get_data", {}),
+            "post_data": request_data.get("post_data", {}),
         }
 
     def initiate_login(self, request_data: Dict[str, Any], return_to: str = "/admin") -> str:
@@ -188,7 +185,9 @@ class SAMLAuthHandler:
         LOG.info("SAML login initiated, redirecting to IdP")
         return redirect_url
 
-    def process_response(self, request_data: Dict[str, Any]) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
+    def process_response(
+        self, request_data: Dict[str, Any]
+    ) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
         """
         Process SAML Response from IdP (ACS endpoint).
 
@@ -237,8 +236,9 @@ class SAMLAuthHandler:
                 username = name_id
 
             if not username:
-                LOG.error(f"Could not extract username. Attributes: {list(attributes.keys())}, NameID: {name_id}")
-                return False, None, None, f"Could not extract username from attribute '{attr_name}'"
+                attr_keys = list(attributes.keys())
+                LOG.error(f"Could not extract username. Attrs: {attr_keys}, NameID: {name_id}")
+                return False, None, None, f"Could not extract username from '{attr_name}'"
 
             LOG.info(f"SAML authentication successful for user: {username}")
             return True, username, session_index, None
@@ -247,9 +247,13 @@ class SAMLAuthHandler:
             LOG.exception(f"SAML response processing error: {e}")
             return False, None, None, f"SAML processing error: {str(e)}"
 
-    def initiate_logout(self, request_data: Dict[str, Any], name_id: str,
-                        session_index: Optional[str] = None,
-                        return_to: str = "/admin/login") -> Optional[str]:
+    def initiate_logout(
+        self,
+        request_data: Dict[str, Any],
+        name_id: str,
+        session_index: Optional[str] = None,
+        return_to: str = "/admin/login",
+    ) -> Optional[str]:
         """
         Initiate SAML Single Logout (SLO).
 
@@ -275,9 +279,7 @@ class SAMLAuthHandler:
         try:
             auth = OneLogin_Saml2_Auth(req, settings)
             redirect_url = auth.logout(
-                name_id=name_id,
-                session_index=session_index,
-                return_to=return_to
+                name_id=name_id, session_index=session_index, return_to=return_to
             )
             LOG.info(f"SAML logout initiated for user: {name_id}")
             return redirect_url
@@ -285,8 +287,9 @@ class SAMLAuthHandler:
             LOG.exception(f"SAML logout initiation error: {e}")
             return None
 
-    def process_logout(self, request_data: Dict[str, Any],
-                       delete_session_callback=None) -> Tuple[bool, Optional[str], Optional[str]]:
+    def process_logout(
+        self, request_data: Dict[str, Any], delete_session_callback=None
+    ) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         Process SAML Logout Request or Response (SLO endpoint).
 
@@ -310,10 +313,10 @@ class SAMLAuthHandler:
             auth = OneLogin_Saml2_Auth(req, settings)
 
             # Check if this is a logout request or response
-            get_data = request_data.get('get_data', {})
-            post_data = request_data.get('post_data', {})
+            get_data = request_data.get("get_data", {})
+            post_data = request_data.get("post_data", {})
 
-            if 'SAMLResponse' in get_data or 'SAMLResponse' in post_data:
+            if "SAMLResponse" in get_data or "SAMLResponse" in post_data:
                 # This is a LogoutResponse from IdP
                 auth.process_slo()
                 errors = auth.get_errors()
@@ -324,15 +327,14 @@ class SAMLAuthHandler:
                 LOG.info("SAML logout response processed successfully")
                 return True, "/admin/login", None
 
-            elif 'SAMLRequest' in get_data or 'SAMLRequest' in post_data:
+            elif "SAMLRequest" in get_data or "SAMLRequest" in post_data:
                 # This is a LogoutRequest from IdP (IdP-initiated logout)
                 def callback():
                     if delete_session_callback:
                         delete_session_callback()
 
                 redirect_url = auth.process_slo(
-                    delete_session_cb=callback,
-                    keep_local_session=False
+                    delete_session_cb=callback, keep_local_session=False
                 )
                 errors = auth.get_errors()
                 if errors:

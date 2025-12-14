@@ -4,19 +4,20 @@ FireLens Monitor - Database Management Module
 Provides persistent storage for metrics data, interface monitoring, and session statistics
 Includes automatic schema migration for interface and session data
 """
-import sqlite3
+
 import logging
-import json
 import re
+import sqlite3
 import threading
 import uuid
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
 from contextlib import contextmanager
-from queue import Queue, Empty
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from queue import Empty, Queue
+from typing import Any, Dict, List, Optional, Tuple
 
 LOG = logging.getLogger("FireLens.database")
+
 
 def parse_iso_datetime_python36(timestamp_str: str) -> datetime:
     """
@@ -25,73 +26,75 @@ def parse_iso_datetime_python36(timestamp_str: str) -> datetime:
     """
     if not timestamp_str:
         return datetime.now(timezone.utc)
-    
+
     # Remove 'Z' and replace with +00:00 for UTC
-    if timestamp_str.endswith('Z'):
-        timestamp_str = timestamp_str[:-1] + '+00:00'
-    
+    if timestamp_str.endswith("Z"):
+        timestamp_str = timestamp_str[:-1] + "+00:00"
+
     # Handle space instead of 'T' separator
-    if ' ' in timestamp_str and 'T' not in timestamp_str:
-        timestamp_str = timestamp_str.replace(' ', 'T', 1)
-    
+    if " " in timestamp_str and "T" not in timestamp_str:
+        timestamp_str = timestamp_str.replace(" ", "T", 1)
+
     # Try manual parsing for Python 3.6
     try:
         # Remove timezone for strptime, then add it back
-        if '+' in timestamp_str:
-            dt_part, tz_part = timestamp_str.rsplit('+', 1)
+        if "+" in timestamp_str:
+            dt_part, tz_part = timestamp_str.rsplit("+", 1)
             sign = 1
-        elif timestamp_str.count('-') > 2:  # Has timezone
-            dt_part, tz_part = timestamp_str.rsplit('-', 1)
+        elif timestamp_str.count("-") > 2:  # Has timezone
+            dt_part, tz_part = timestamp_str.rsplit("-", 1)
             sign = -1
         else:
             # No timezone, assume UTC
             try:
-                dt = datetime.strptime(timestamp_str.replace('T', ' '), '%Y-%m-%d %H:%M:%S.%f')
+                dt = datetime.strptime(timestamp_str.replace("T", " "), "%Y-%m-%d %H:%M:%S.%f")
             except ValueError:
-                dt = datetime.strptime(timestamp_str.replace('T', ' '), '%Y-%m-%d %H:%M:%S')
+                dt = datetime.strptime(timestamp_str.replace("T", " "), "%Y-%m-%d %H:%M:%S")
             return dt.replace(tzinfo=timezone.utc)
-        
+
         # Parse the datetime part
         try:
-            dt = datetime.strptime(dt_part.replace('T', ' '), '%Y-%m-%d %H:%M:%S.%f')
+            dt = datetime.strptime(dt_part.replace("T", " "), "%Y-%m-%d %H:%M:%S.%f")
         except ValueError:
-            dt = datetime.strptime(dt_part.replace('T', ' '), '%Y-%m-%d %H:%M:%S')
-        
+            dt = datetime.strptime(dt_part.replace("T", " "), "%Y-%m-%d %H:%M:%S")
+
         # Parse timezone
-        if ':' in tz_part:
-            hours, minutes = map(int, tz_part.split(':'))
+        if ":" in tz_part:
+            hours, minutes = map(int, tz_part.split(":"))
         else:
             hours = int(tz_part[:2])
             minutes = int(tz_part[2:]) if len(tz_part) > 2 else 0
-        
-        offset = timedelta(hours=sign*hours, minutes=sign*minutes)
+
+        offset = timedelta(hours=sign * hours, minutes=sign * minutes)
         tz = timezone(offset)
         return dt.replace(tzinfo=tz)
-        
+
     except Exception as e:
         LOG.debug(f"Manual parsing failed for '{timestamp_str}': {e}")
-        
+
         # Last resort: try common formats without timezone, assume UTC
         formats = [
-            '%Y-%m-%d %H:%M:%S.%f',
-            '%Y-%m-%d %H:%M:%S',
-            '%Y-%m-%dT%H:%M:%S.%f',
-            '%Y-%m-%dT%H:%M:%S',
-            '%Y-%m-%d'
+            "%Y-%m-%d %H:%M:%S.%f",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S.%f",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%d",
         ]
-        
+
         for fmt in formats:
             try:
-                dt = datetime.strptime(timestamp_str.split('+')[0].split('Z')[0], fmt)
+                dt = datetime.strptime(timestamp_str.split("+")[0].split("Z")[0], fmt)
                 return dt.replace(tzinfo=timezone.utc)
             except ValueError:
                 continue
-    
+
     LOG.warning(f"Could not parse timestamp '{timestamp_str}', using current time")
     return datetime.now(timezone.utc)
 
+
 # Use the Python 3.6 compatible function
 parse_iso_datetime = parse_iso_datetime_python36
+
 
 class EnhancedMetricsDatabase:
     """SQLite database for storing firewall metrics, interface data, and session statistics"""
@@ -109,7 +112,7 @@ class EnhancedMetricsDatabase:
         LOG.info(f"🔧 Initializing database at: {self.db_path}")
         self._init_database()
         LOG.info(f"✅ Database ready with connection pooling at: {self.db_path}")
-    
+
     def _init_database(self):
         """Initialize database schema with automatic migration"""
         with self._get_connection() as conn:
@@ -124,9 +127,9 @@ class EnhancedMetricsDatabase:
                 )
             """)
             LOG.info("✓ Firewalls table created/verified")
-            
+
             # Create metrics table (common metrics only - vendor-specific go to vendor tables)
-            # Note: New databases get vendor-agnostic schema. Existing DBs are migrated in _migrate_schema()
+            # Note: New DBs get vendor-agnostic schema. Existing DBs migrated in _migrate_schema()
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,19 +140,19 @@ class EnhancedMetricsDatabase:
                 )
             """)
             LOG.info("✓ Metrics table created/verified")
-            
+
             # Create indexes for better query performance
             conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_metrics_firewall_timestamp 
+                CREATE INDEX IF NOT EXISTS idx_metrics_firewall_timestamp
                 ON metrics (firewall_name, timestamp)
             """)
-            
+
             conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_metrics_timestamp 
+                CREATE INDEX IF NOT EXISTS idx_metrics_timestamp
                 ON metrics (timestamp)
             """)
             LOG.info("✓ Metrics indexes created/verified")
-            
+
             # Create configuration table for storing runtime config
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS configuration (
@@ -187,22 +190,24 @@ class EnhancedMetricsDatabase:
                 )
             """)
             LOG.debug("✓ Schema version table created/verified")
-            
+
             conn.commit()
-            
+
             # Verify critical tables exist
-            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='firewalls'")
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='firewalls'"
+            )
             if not cursor.fetchone():
                 LOG.error("❌ CRITICAL: Firewalls table was not created!")
                 raise RuntimeError("Failed to create firewalls table")
-            
+
             LOG.info("✅ Core database tables initialized")
-        
+
         # Automatically migrate schema to add enhanced statistics and interface monitoring
         self._migrate_schema()
-        
+
         LOG.info(f"Enhanced database initialized with interface monitoring: {self.db_path}")
-    
+
     # Current schema version - increment when making schema changes
     SCHEMA_VERSION = 2
 
@@ -220,7 +225,7 @@ class EnhancedMetricsDatabase:
         """Record a schema version migration"""
         conn.execute(
             "INSERT OR REPLACE INTO schema_version (version, description) VALUES (?, ?)",
-            (version, description)
+            (version, description),
         )
         LOG.info(f"📝 Schema version updated to {version}: {description}")
 
@@ -243,21 +248,28 @@ class EnhancedMetricsDatabase:
 
                 # Palo Alto-specific columns to remove from main metrics table
                 pa_specific_columns = [
-                    'cpu_user', 'cpu_system', 'cpu_idle',  # Generic CPU (not collected anymore)
-                    'mgmt_cpu', 'data_plane_cpu',           # PA-specific
-                    'data_plane_cpu_mean', 'data_plane_cpu_max', 'data_plane_cpu_p95',  # PA-specific
-                    'pbuf_util_percent',                     # PA-specific
-                    'throughput_mbps_total', 'pps_total'    # Obsolete (moved to interface_metrics)
+                    "cpu_user",
+                    "cpu_system",
+                    "cpu_idle",  # Generic CPU (not collected anymore)
+                    "mgmt_cpu",
+                    "data_plane_cpu",  # PA-specific
+                    "data_plane_cpu_mean",
+                    "data_plane_cpu_max",
+                    "data_plane_cpu_p95",  # PA-specific
+                    "pbuf_util_percent",  # PA-specific
+                    "throughput_mbps_total",
+                    "pps_total",  # Obsolete (moved to interface_metrics)
                 ]
 
                 # Check if any PA-specific columns exist in the metrics table
                 columns_to_remove = [col for col in pa_specific_columns if col in existing_columns]
 
                 if columns_to_remove:
-                    LOG.info(f"🔄 Schema v2 migration: Removing {len(columns_to_remove)} vendor-specific columns from metrics table")
+                    col_count = len(columns_to_remove)
+                    LOG.info(f"🔄 Schema v2 migration: Removing {col_count} vendor columns")
                     LOG.info(f"   Columns to remove: {', '.join(columns_to_remove)}")
-                    LOG.info(f"   Note: Historical PA CPU/pbuf data will be dropped")
-                    LOG.info(f"   Going forward, all vendor CPU data goes to vendor-specific tables")
+                    LOG.info("   Note: Historical PA CPU/pbuf data will be dropped")
+                    LOG.info("   Going forward, all vendor CPU data goes to vendor-specific tables")
 
                     try:
                         # Create new metrics table with only common fields
@@ -301,11 +313,11 @@ class EnhancedMetricsDatabase:
 
                         conn.commit()
 
-                        LOG.info(f"✅ Schema v2 migration successful")
-                        LOG.info(f"   Migrated {new_count} of {old_count} metric records (timestamps only)")
+                        LOG.info("✅ Schema v2 migration successful")
+                        LOG.info(f"   Migrated {new_count} of {old_count} metric records")
                         LOG.info(f"   Removed columns: {', '.join(columns_to_remove)}")
-                        LOG.info(f"   PA CPU data now stored in palo_alto_metrics table")
-                        LOG.info(f"   Fortinet CPU data stored in fortinet_metrics table")
+                        LOG.info("   PA CPU data now stored in palo_alto_metrics table")
+                        LOG.info("   Fortinet CPU data stored in fortinet_metrics table")
 
                     except Exception as e:
                         LOG.error(f"❌ Schema v2 migration failed: {e}")
@@ -316,33 +328,34 @@ class EnhancedMetricsDatabase:
             # Check what columns currently exist in metrics table
             cursor = conn.execute("PRAGMA table_info(metrics)")
             existing_columns = [row[1] for row in cursor.fetchall()]
-            
+
             # Define columns that should be REMOVED (no longer collected)
             obsolete_columns = [
-                'throughput_mbps_total',      # Session-based throughput (replaced by interface metrics)
-                'throughput_mbps_max',        # Session-based throughput max
-                'throughput_mbps_min',        # Session-based throughput min
-                'throughput_mbps_p95',        # Session-based throughput p95
-                'pps_total',                  # Session-based PPS (replaced by interface metrics)
-                'pps_max',                    # Session-based PPS max
-                'pps_min',                    # Session-based PPS min
-                'pps_p95',                    # Session-based PPS p95
-                'session_sample_count',       # Session sampling metadata
-                'session_success_rate',       # Session sampling metadata
-                'session_sampling_period',    # Session sampling metadata
+                "throughput_mbps_total",  # Session-based throughput (replaced by interface metrics)
+                "throughput_mbps_max",  # Session-based throughput max
+                "throughput_mbps_min",  # Session-based throughput min
+                "throughput_mbps_p95",  # Session-based throughput p95
+                "pps_total",  # Session-based PPS (replaced by interface metrics)
+                "pps_max",  # Session-based PPS max
+                "pps_min",  # Session-based PPS min
+                "pps_p95",  # Session-based PPS p95
+                "session_sample_count",  # Session sampling metadata
+                "session_success_rate",  # Session sampling metadata
+                "session_sampling_period",  # Session sampling metadata
             ]
-            
+
             # Check if any obsolete columns exist
             columns_to_remove = [col for col in obsolete_columns if col in existing_columns]
-            
+
             if columns_to_remove:
-                LOG.info(f"🔍 Schema migration: Detected {len(columns_to_remove)} obsolete columns (no longer collected)")
-                LOG.info(f"   Removing session-based throughput columns (now using interface-based monitoring)")
-                
+                col_count = len(columns_to_remove)
+                LOG.info(f"🔍 Schema migration: Detected {col_count} obsolete columns")
+                LOG.info("   Removing session-based throughput columns (now interface-based)")
+
                 # SQLite doesn't support DROP COLUMN easily, so we need to recreate the table
                 # Get the columns we want to keep
                 columns_to_keep = [col for col in existing_columns if col not in obsolete_columns]
-                
+
                 # Build the new table schema with only columns we want
                 new_columns_def = []
                 cursor = conn.execute("PRAGMA table_info(metrics)")
@@ -354,50 +367,53 @@ class EnhancedMetricsDatabase:
                         default = f" DEFAULT {row[4]}" if row[4] is not None else ""
                         pk = " PRIMARY KEY AUTOINCREMENT" if row[5] else ""
                         new_columns_def.append(f"{col_name} {col_type}{not_null}{default}{pk}")
-                
+
                 # Add foreign key constraint
-                if 'firewall_name' in columns_to_keep:
-                    new_columns_def.append("FOREIGN KEY (firewall_name) REFERENCES firewalls (name)")
-                
+                if "firewall_name" in columns_to_keep:
+                    new_columns_def.append(
+                        "FOREIGN KEY (firewall_name) REFERENCES firewalls (name)"
+                    )
+
                 try:
                     # Create new table with updated schema
                     conn.execute(f"""
                         CREATE TABLE metrics_new (
-                            {', '.join(new_columns_def)}
+                            {", ".join(new_columns_def)}
                         )
                     """)
-                    
+
                     # Copy data from old table to new table
-                    columns_str = ', '.join(columns_to_keep)
+                    columns_str = ", ".join(columns_to_keep)
                     conn.execute(f"""
                         INSERT INTO metrics_new ({columns_str})
                         SELECT {columns_str} FROM metrics
                     """)
-                    
+
                     # Drop old table
                     conn.execute("DROP TABLE metrics")
-                    
+
                     # Rename new table
                     conn.execute("ALTER TABLE metrics_new RENAME TO metrics")
-                    
+
                     # Recreate indexes
                     conn.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_metrics_firewall_timestamp 
+                        CREATE INDEX IF NOT EXISTS idx_metrics_firewall_timestamp
                         ON metrics (firewall_name, timestamp)
                     """)
-                    
+
                     conn.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_metrics_timestamp 
+                        CREATE INDEX IF NOT EXISTS idx_metrics_timestamp
                         ON metrics (timestamp)
                     """)
-                    
+
                     conn.commit()
-                    
-                    LOG.info(f"✅ Schema migration successful: Removed {len(columns_to_remove)} obsolete columns")
+
+                    col_count = len(columns_to_remove)
+                    LOG.info(f"✅ Schema migration: Removed {col_count} obsolete columns")
                     for col in columns_to_remove:
                         LOG.info(f"   ✓ Removed: {col}")
-                    LOG.info(f"📈 Throughput now tracked via interface_metrics table (more accurate)")
-                    
+                    LOG.info("📈 Throughput now tracked via interface_metrics table")
+
                 except Exception as e:
                     LOG.error(f"❌ Schema migration failed: {e}")
                     conn.rollback()
@@ -411,12 +427,12 @@ class EnhancedMetricsDatabase:
             firewall_columns = [row[1] for row in cursor.fetchall()]
 
             hardware_columns = {
-                'model': 'TEXT',
-                'family': 'TEXT',
-                'platform_family': 'TEXT',
-                'serial': 'TEXT',
-                'hostname': 'TEXT',
-                'sw_version': 'TEXT'
+                "model": "TEXT",
+                "family": "TEXT",
+                "platform_family": "TEXT",
+                "serial": "TEXT",
+                "hostname": "TEXT",
+                "sw_version": "TEXT",
             }
 
             for col_name, col_type in hardware_columns.items():
@@ -446,7 +462,7 @@ class EnhancedMetricsDatabase:
                     FOREIGN KEY (firewall_name) REFERENCES firewalls (name)
                 )
             """)
-            
+
             # Create session statistics table
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS session_statistics (
@@ -463,7 +479,7 @@ class EnhancedMetricsDatabase:
                     FOREIGN KEY (firewall_name) REFERENCES firewalls (name)
                 )
             """)
-            
+
             # Create indexes for interface metrics
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_interface_metrics_firewall_interface_timestamp
@@ -484,7 +500,7 @@ class EnhancedMetricsDatabase:
                 CREATE INDEX IF NOT EXISTS idx_session_statistics_firewall_timestamp
                 ON session_statistics (firewall_name, timestamp)
             """)
-            
+
             # Create vendor-specific metrics tables for modular schema evolution
 
             # Fortinet-specific metrics table
@@ -547,7 +563,7 @@ class EnhancedMetricsDatabase:
             # Check fortinet_metrics for cpu_usage column (added in v1.6.12)
             cursor = conn.execute("PRAGMA table_info(fortinet_metrics)")
             fortinet_columns = [row[1] for row in cursor.fetchall()]
-            if 'cpu_usage' not in fortinet_columns:
+            if "cpu_usage" not in fortinet_columns:
                 try:
                     conn.execute("ALTER TABLE fortinet_metrics ADD COLUMN cpu_usage REAL")
                     LOG.info("✅ Added cpu_usage column to fortinet_metrics table")
@@ -577,7 +593,7 @@ class EnhancedMetricsDatabase:
                 self._set_schema_version(
                     conn,
                     self.SCHEMA_VERSION,
-                    "Vendor-agnostic metrics table - CPU/pbuf moved to vendor-specific tables"
+                    "Vendor-agnostic metrics table - CPU/pbuf moved to vendor-specific tables",
                 )
                 conn.commit()
                 LOG.info(f"✅ Database schema upgrade complete: now at v{self.SCHEMA_VERSION}")
@@ -598,7 +614,9 @@ class EnhancedMetricsDatabase:
             try:
                 conn = self._connection_pool.get_nowait()
                 from_pool = True
-                LOG.debug(f"Reusing connection from pool (pool size: {self._connection_pool.qsize()})")
+                LOG.debug(
+                    f"Reusing connection from pool (pool size: {self._connection_pool.qsize()})"
+                )
             except Empty:
                 # Pool is empty, create new connection
                 conn = sqlite3.connect(str(self.db_path), timeout=30.0, check_same_thread=False)
@@ -615,13 +633,14 @@ class EnhancedMetricsDatabase:
                         # Reset any uncommitted transactions
                         try:
                             conn.rollback()
-                        except:
+                        except Exception:
                             pass
                         # Try to return to pool
                         try:
                             self._connection_pool.put_nowait(conn)
-                            LOG.debug(f"Returned connection to pool (pool size: {self._connection_pool.qsize()})")
-                        except:
+                            pool_size = self._connection_pool.qsize()
+                            LOG.debug(f"Returned connection to pool (pool size: {pool_size})")
+                        except Exception:
                             # Pool is full, close this connection
                             conn.close()
                             LOG.debug("Pool full, closed excess connection")
@@ -633,10 +652,12 @@ class EnhancedMetricsDatabase:
                     LOG.debug(f"Error managing connection: {e}")
                     try:
                         conn.close()
-                    except:
+                    except Exception:
                         pass
-    
-    def register_firewall(self, name: str, host: str, hardware_info: Optional[Dict[str, str]] = None) -> bool:
+
+    def register_firewall(
+        self, name: str, host: str, hardware_info: Optional[Dict[str, str]] = None
+    ) -> bool:
         """
         Register a firewall in the database with optional hardware information
 
@@ -649,28 +670,39 @@ class EnhancedMetricsDatabase:
             with self._get_connection() as conn:
                 if hardware_info:
                     # Store hardware info if provided
-                    conn.execute("""
+                    conn.execute(
+                        """
                         INSERT OR REPLACE INTO firewalls
-                        (name, host, model, family, platform_family, serial, hostname, sw_version, updated_at)
+                        (name, host, model, family, platform_family,
+                         serial, hostname, sw_version, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    """, (
-                        name,
-                        host,
-                        hardware_info.get('model'),
-                        hardware_info.get('family'),
-                        hardware_info.get('platform_family'),
-                        hardware_info.get('serial'),
-                        hardware_info.get('hostname'),
-                        hardware_info.get('sw_version')
-                    ))
-                    model_info = f" [Model: {hardware_info.get('model', 'unknown')}]" if hardware_info.get('model') else ""
+                    """,
+                        (
+                            name,
+                            host,
+                            hardware_info.get("model"),
+                            hardware_info.get("family"),
+                            hardware_info.get("platform_family"),
+                            hardware_info.get("serial"),
+                            hardware_info.get("hostname"),
+                            hardware_info.get("sw_version"),
+                        ),
+                    )
+                    model_info = (
+                        f" [Model: {hardware_info.get('model', 'unknown')}]"
+                        if hardware_info.get("model")
+                        else ""
+                    )
                     LOG.info(f"Registered firewall: {name} ({host}){model_info}")
                 else:
                     # Just update name and host
-                    conn.execute("""
+                    conn.execute(
+                        """
                         INSERT OR REPLACE INTO firewalls (name, host, updated_at)
                         VALUES (?, ?, CURRENT_TIMESTAMP)
-                    """, (name, host))
+                    """,
+                        (name, host),
+                    )
                     LOG.info(f"Registered firewall: {name} ({host})")
                 conn.commit()
                 return True
@@ -696,7 +728,9 @@ class EnhancedMetricsDatabase:
                     # Use IF EXISTS pattern to handle tables that may not exist
                     conn.execute("DELETE FROM metrics WHERE firewall_name = ?", (name,))
                     try:
-                        conn.execute("DELETE FROM interface_metrics WHERE firewall_name = ?", (name,))
+                        conn.execute(
+                            "DELETE FROM interface_metrics WHERE firewall_name = ?", (name,)
+                        )
                     except Exception:
                         pass  # Table may not exist
                     try:
@@ -741,7 +775,8 @@ class EnhancedMetricsDatabase:
 
         # Validate new name format
         import re
-        if not re.match(r'^[a-zA-Z0-9_]+$', new_name):
+
+        if not re.match(r"^[a-zA-Z0-9_]+$", new_name):
             return False, "New name must contain only letters, numbers, and underscores"
 
         try:
@@ -762,7 +797,7 @@ class EnhancedMetricsDatabase:
                 # Update metrics table
                 cursor.execute(
                     "UPDATE metrics SET firewall_name = ? WHERE firewall_name = ?",
-                    (new_name, old_name)
+                    (new_name, old_name),
                 )
                 metrics_count = cursor.rowcount
 
@@ -771,7 +806,7 @@ class EnhancedMetricsDatabase:
                 try:
                     cursor.execute(
                         "UPDATE interface_metrics SET firewall_name = ? WHERE firewall_name = ?",
-                        (new_name, old_name)
+                        (new_name, old_name),
                     )
                     interface_count = cursor.rowcount
                 except Exception:
@@ -782,7 +817,7 @@ class EnhancedMetricsDatabase:
                 try:
                     cursor.execute(
                         "UPDATE session_statistics SET firewall_name = ? WHERE firewall_name = ?",
-                        (new_name, old_name)
+                        (new_name, old_name),
                     )
                     session_count = cursor.rowcount
                 except Exception:
@@ -795,7 +830,7 @@ class EnhancedMetricsDatabase:
                 try:
                     cursor.execute(
                         "UPDATE fortinet_metrics SET firewall_name = ? WHERE firewall_name = ?",
-                        (new_name, old_name)
+                        (new_name, old_name),
                     )
                     fortinet_count = cursor.rowcount
                 except Exception:
@@ -804,17 +839,18 @@ class EnhancedMetricsDatabase:
                 try:
                     cursor.execute(
                         "UPDATE palo_alto_metrics SET firewall_name = ? WHERE firewall_name = ?",
-                        (new_name, old_name)
+                        (new_name, old_name),
                     )
                     palo_alto_count = cursor.rowcount
                 except Exception:
                     pass  # Table may not exist
 
                 try:
-                    cursor.execute(
-                        "UPDATE cisco_firepower_metrics SET firewall_name = ? WHERE firewall_name = ?",
-                        (new_name, old_name)
+                    sql = (
+                        "UPDATE cisco_firepower_metrics "
+                        "SET firewall_name = ? WHERE firewall_name = ?"
                     )
+                    cursor.execute(sql, (new_name, old_name))
                     cisco_count = cursor.rowcount
                 except Exception:
                     pass  # Table may not exist
@@ -822,15 +858,17 @@ class EnhancedMetricsDatabase:
                 # Update the firewall record itself
                 cursor.execute(
                     "UPDATE firewalls SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?",
-                    (new_name, old_name)
+                    (new_name, old_name),
                 )
 
                 conn.commit()
 
                 vendor_counts = fortinet_count + palo_alto_count + cisco_count
-                LOG.info(f"Renamed firewall '{old_name}' to '{new_name}' "
-                         f"(updated {metrics_count} metrics, {interface_count} interface records, "
-                         f"{session_count} session records, {vendor_counts} vendor-specific records)")
+                LOG.info(
+                    f"Renamed firewall '{old_name}' to '{new_name}' "
+                    f"(updated {metrics_count} metrics, {interface_count} interface records, "
+                    f"{session_count} session records, {vendor_counts} vendor-specific records)"
+                )
 
                 return True, f"Successfully renamed '{old_name}' to '{new_name}'"
 
@@ -847,26 +885,25 @@ class EnhancedMetricsDatabase:
             firewall_name: Name of the firewall
 
         Returns:
-            Dict with counts per table: {'metrics': N, 'interface_metrics': N, 'session_statistics': N}
+            Dict with counts per table: {'metrics': N, 'interface_metrics': N, ...}
         """
-        counts = {'metrics': 0, 'interface_metrics': 0, 'session_statistics': 0}
+        counts = {"metrics": 0, "interface_metrics": 0, "session_statistics": 0}
 
         try:
             with self._get_connection() as conn:
                 # Count metrics
                 cursor = conn.execute(
-                    "SELECT COUNT(*) FROM metrics WHERE firewall_name = ?",
-                    (firewall_name,)
+                    "SELECT COUNT(*) FROM metrics WHERE firewall_name = ?", (firewall_name,)
                 )
-                counts['metrics'] = cursor.fetchone()[0]
+                counts["metrics"] = cursor.fetchone()[0]
 
                 # Count interface_metrics
                 try:
                     cursor = conn.execute(
                         "SELECT COUNT(*) FROM interface_metrics WHERE firewall_name = ?",
-                        (firewall_name,)
+                        (firewall_name,),
                     )
-                    counts['interface_metrics'] = cursor.fetchone()[0]
+                    counts["interface_metrics"] = cursor.fetchone()[0]
                 except Exception:
                     pass  # Table may not exist
 
@@ -874,9 +911,9 @@ class EnhancedMetricsDatabase:
                 try:
                     cursor = conn.execute(
                         "SELECT COUNT(*) FROM session_statistics WHERE firewall_name = ?",
-                        (firewall_name,)
+                        (firewall_name,),
                     )
-                    counts['session_statistics'] = cursor.fetchone()[0]
+                    counts["session_statistics"] = cursor.fetchone()[0]
                 except Exception:
                     pass  # Table may not exist
 
@@ -885,7 +922,9 @@ class EnhancedMetricsDatabase:
 
         return counts
 
-    def start_rename_task(self, old_name: str, new_name: str) -> Tuple[Optional[str], Optional[str]]:
+    def start_rename_task(
+        self, old_name: str, new_name: str
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
         Start a background rename task.
 
@@ -900,7 +939,7 @@ class EnhancedMetricsDatabase:
         if old_name == new_name:
             return None, "Names are identical"
 
-        if not re.match(r'^[a-zA-Z0-9_]+$', new_name):
+        if not re.match(r"^[a-zA-Z0-9_]+$", new_name):
             return None, "Invalid name format. Use only letters, numbers, and underscores."
 
         # Check names exist/don't exist
@@ -911,12 +950,15 @@ class EnhancedMetricsDatabase:
                 return None, f"Firewall '{new_name}' already exists"
 
             # Check for pending/running rename tasks for this firewall
-            existing = conn.execute(
-                "SELECT id, status FROM rename_tasks WHERE old_name = ? AND status IN ('pending', 'running')",
-                (old_name,)
-            ).fetchone()
+            sql = (
+                "SELECT id, status FROM rename_tasks "
+                "WHERE old_name = ? AND status IN ('pending', 'running')"
+            )
+            existing = conn.execute(sql, (old_name,)).fetchone()
             if existing:
-                return None, f"A rename task is already {existing[1]} for this firewall (task {existing[0]})"
+                status = existing[1]
+                task_id = existing[0]
+                return (None, f"Rename task already {status} for firewall (task {task_id})")
 
         # Count total rows
         counts = self.count_firewall_references(old_name)
@@ -925,18 +967,17 @@ class EnhancedMetricsDatabase:
         # Create task record
         task_id = str(uuid.uuid4())[:8]
         with self._get_connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO rename_tasks (id, old_name, new_name, status, total_rows)
                 VALUES (?, ?, ?, 'pending', ?)
-            """, (task_id, old_name, new_name, total_rows))
+            """,
+                (task_id, old_name, new_name, total_rows),
+            )
             conn.commit()
 
         # Start background thread
-        thread = threading.Thread(
-            target=self._execute_rename_task,
-            args=(task_id,),
-            daemon=True
-        )
+        thread = threading.Thread(target=self._execute_rename_task, args=(task_id,), daemon=True)
         thread.start()
 
         LOG.info(f"Started rename task {task_id}: '{old_name}' -> '{new_name}' ({total_rows} rows)")
@@ -950,8 +991,7 @@ class EnhancedMetricsDatabase:
             # Get task details
             with self._get_connection() as conn:
                 task = conn.execute(
-                    "SELECT old_name, new_name FROM rename_tasks WHERE id = ?",
-                    (task_id,)
+                    "SELECT old_name, new_name FROM rename_tasks WHERE id = ?", (task_id,)
                 ).fetchone()
                 if not task:
                     return
@@ -959,15 +999,18 @@ class EnhancedMetricsDatabase:
                 old_name, new_name = task
 
                 # Update status to running
-                conn.execute("""
+                conn.execute(
+                    """
                     UPDATE rename_tasks
                     SET status = 'running', started_at = CURRENT_TIMESTAMP
                     WHERE id = ?
-                """, (task_id,))
+                """,
+                    (task_id,),
+                )
                 conn.commit()
 
             # Process each table
-            tables = ['metrics', 'interface_metrics', 'session_statistics']
+            tables = ["metrics", "interface_metrics", "session_statistics"]
             processed = 0
 
             for table in tables:
@@ -976,7 +1019,8 @@ class EnhancedMetricsDatabase:
                 while True:
                     with self._get_connection() as conn:
                         # Use rowid for efficient batching
-                        cursor = conn.execute(f"""
+                        cursor = conn.execute(
+                            f"""
                             UPDATE {table}
                             SET firewall_name = ?
                             WHERE rowid IN (
@@ -984,7 +1028,9 @@ class EnhancedMetricsDatabase:
                                 WHERE firewall_name = ?
                                 LIMIT {BATCH_SIZE}
                             )
-                        """, (new_name, old_name))
+                        """,
+                            (new_name, old_name),
+                        )
 
                         updated = cursor.rowcount
                         conn.commit()
@@ -999,39 +1045,50 @@ class EnhancedMetricsDatabase:
             with self._get_connection() as conn:
                 conn.execute(
                     "UPDATE firewalls SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?",
-                    (new_name, old_name)
+                    (new_name, old_name),
                 )
                 conn.commit()
 
             # Mark complete
             with self._get_connection() as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     UPDATE rename_tasks
                     SET status = 'completed', completed_at = CURRENT_TIMESTAMP, processed_rows = ?
                     WHERE id = ?
-                """, (processed, task_id))
+                """,
+                    (processed, task_id),
+                )
                 conn.commit()
 
-            LOG.info(f"Rename task {task_id} completed: '{old_name}' -> '{new_name}' ({processed} rows)")
+            LOG.info(
+                f"Rename task {task_id} completed: '{old_name}' -> '{new_name}' ({processed} rows)"
+            )
 
         except Exception as e:
             LOG.error(f"Rename task {task_id} failed: {e}")
             with self._get_connection() as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     UPDATE rename_tasks
                     SET status = 'failed', error_message = ?, completed_at = CURRENT_TIMESTAMP
                     WHERE id = ?
-                """, (str(e), task_id))
+                """,
+                    (str(e), task_id),
+                )
                 conn.commit()
 
     def _update_task_progress(self, task_id: str, processed: int, current_table: str):
         """Update task progress in database"""
         with self._get_connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE rename_tasks
                 SET processed_rows = ?, current_table = ?
                 WHERE id = ?
-            """, (processed, current_table, task_id))
+            """,
+                (processed, current_table, task_id),
+            )
             conn.commit()
 
     def get_rename_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
@@ -1045,12 +1102,15 @@ class EnhancedMetricsDatabase:
             Dict with task status or None if not found
         """
         with self._get_connection() as conn:
-            row = conn.execute("""
+            row = conn.execute(
+                """
                 SELECT id, old_name, new_name, status, current_table,
                        total_rows, processed_rows, error_message,
                        started_at, completed_at
                 FROM rename_tasks WHERE id = ?
-            """, (task_id,)).fetchone()
+            """,
+                (task_id,),
+            ).fetchone()
 
             if not row:
                 return None
@@ -1059,20 +1119,24 @@ class EnhancedMetricsDatabase:
             processed_rows = row[6] or 0
 
             return {
-                'task_id': row[0],
-                'old_name': row[1],
-                'new_name': row[2],
-                'status': row[3],
-                'current_table': row[4],
-                'total_rows': total_rows,
-                'processed_rows': processed_rows,
-                'progress_percent': round(processed_rows / total_rows * 100, 1) if total_rows > 0 else 100,
-                'error_message': row[7],
-                'started_at': row[8],
-                'completed_at': row[9]
+                "task_id": row[0],
+                "old_name": row[1],
+                "new_name": row[2],
+                "status": row[3],
+                "current_table": row[4],
+                "total_rows": total_rows,
+                "processed_rows": processed_rows,
+                "progress_percent": round(processed_rows / total_rows * 100, 1)
+                if total_rows > 0
+                else 100,
+                "error_message": row[7],
+                "started_at": row[8],
+                "completed_at": row[9],
             }
 
-    def insert_metrics(self, firewall_name: str, metrics: Dict[str, Any], vendor_type: str = None) -> bool:
+    def insert_metrics(
+        self, firewall_name: str, metrics: Dict[str, Any], vendor_type: str = None
+    ) -> bool:
         """
         Insert metrics data for a firewall.
 
@@ -1091,12 +1155,12 @@ class EnhancedMetricsDatabase:
         """
         try:
             # Auto-register firewall if metrics include host information
-            if 'firewall_host' in metrics:
-                self.register_firewall(firewall_name, metrics['firewall_host'])
+            if "firewall_host" in metrics:
+                self.register_firewall(firewall_name, metrics["firewall_host"])
 
             with self._get_connection() as conn:
                 # Convert timestamp string to datetime if needed
-                timestamp = metrics.get('timestamp')
+                timestamp = metrics.get("timestamp")
                 if isinstance(timestamp, str):
                     timestamp = parse_iso_datetime(timestamp)
                 elif timestamp is None:
@@ -1106,33 +1170,36 @@ class EnhancedMetricsDatabase:
                     timestamp = timestamp.replace(tzinfo=timezone.utc)
 
                 # Insert into main metrics table (common fields only)
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT INTO metrics (firewall_name, timestamp)
                     VALUES (?, ?)
-                """, (firewall_name, timestamp))
+                """,
+                    (firewall_name, timestamp),
+                )
                 conn.commit()
 
             # Route vendor-specific data to vendor tables
-            if vendor_type == 'palo_alto':
+            if vendor_type == "palo_alto":
                 # Extract Palo Alto-specific metrics
                 pa_metrics = {
-                    'timestamp': timestamp,
-                    'mgmt_cpu': metrics.get('mgmt_cpu'),
-                    'data_plane_cpu_mean': metrics.get('data_plane_cpu_mean'),
-                    'data_plane_cpu_max': metrics.get('data_plane_cpu_max'),
-                    'data_plane_cpu_p95': metrics.get('data_plane_cpu_p95'),
-                    'pbuf_util_percent': metrics.get('pbuf_util_percent')
+                    "timestamp": timestamp,
+                    "mgmt_cpu": metrics.get("mgmt_cpu"),
+                    "data_plane_cpu_mean": metrics.get("data_plane_cpu_mean"),
+                    "data_plane_cpu_max": metrics.get("data_plane_cpu_max"),
+                    "data_plane_cpu_p95": metrics.get("data_plane_cpu_p95"),
+                    "pbuf_util_percent": metrics.get("pbuf_util_percent"),
                 }
                 self.insert_palo_alto_metrics(firewall_name, pa_metrics)
 
-            elif vendor_type == 'fortinet':
+            elif vendor_type == "fortinet":
                 # Extract Fortinet-specific metrics
                 fortinet_metrics = {
-                    'timestamp': timestamp,
-                    'cpu_usage': metrics.get('cpu_usage'),
-                    'memory_usage_percent': metrics.get('memory_usage_percent'),
-                    'session_setup_rate': metrics.get('session_setup_rate'),
-                    'npu_sessions': metrics.get('npu_sessions')
+                    "timestamp": timestamp,
+                    "cpu_usage": metrics.get("cpu_usage"),
+                    "memory_usage_percent": metrics.get("memory_usage_percent"),
+                    "session_setup_rate": metrics.get("session_setup_rate"),
+                    "npu_sessions": metrics.get("npu_sessions"),
                 }
                 self.insert_fortinet_metrics(firewall_name, fortinet_metrics)
 
@@ -1140,76 +1207,84 @@ class EnhancedMetricsDatabase:
         except Exception as e:
             LOG.error(f"Failed to insert metrics for {firewall_name}: {e}")
             return False
-    
-    def insert_interface_metrics(self, firewall_name: str, interface_metrics: Dict[str, Any]) -> bool:
+
+    def insert_interface_metrics(
+        self, firewall_name: str, interface_metrics: Dict[str, Any]
+    ) -> bool:
         """Insert interface metrics data"""
         try:
             # Auto-register firewall if metrics include host information
-            if 'firewall_host' in interface_metrics:
-                self.register_firewall(firewall_name, interface_metrics['firewall_host'])
-            
+            if "firewall_host" in interface_metrics:
+                self.register_firewall(firewall_name, interface_metrics["firewall_host"])
+
             with self._get_connection() as conn:
-                timestamp = interface_metrics.get('timestamp')
+                timestamp = interface_metrics.get("timestamp")
                 if isinstance(timestamp, str):
                     timestamp = parse_iso_datetime(timestamp)
                 elif timestamp is None:
                     timestamp = datetime.now(timezone.utc)
                 elif isinstance(timestamp, datetime) and timestamp.tzinfo is None:
                     timestamp = timestamp.replace(tzinfo=timezone.utc)
-                
-                conn.execute("""
+
+                conn.execute(
+                    """
                     INSERT INTO interface_metrics (
                         firewall_name, interface_name, timestamp, rx_mbps, tx_mbps,
                         total_mbps, rx_pps, tx_pps, interval_seconds
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    firewall_name,
-                    interface_metrics.get('interface_name'),
-                    timestamp,
-                    interface_metrics.get('rx_mbps', 0),
-                    interface_metrics.get('tx_mbps', 0),
-                    interface_metrics.get('total_mbps', 0),
-                    interface_metrics.get('rx_pps', 0),
-                    interface_metrics.get('tx_pps', 0),
-                    interface_metrics.get('interval_seconds', 0)
-                ))
+                """,
+                    (
+                        firewall_name,
+                        interface_metrics.get("interface_name"),
+                        timestamp,
+                        interface_metrics.get("rx_mbps", 0),
+                        interface_metrics.get("tx_mbps", 0),
+                        interface_metrics.get("total_mbps", 0),
+                        interface_metrics.get("rx_pps", 0),
+                        interface_metrics.get("tx_pps", 0),
+                        interface_metrics.get("interval_seconds", 0),
+                    ),
+                )
                 conn.commit()
                 return True
         except Exception as e:
             LOG.error(f"Failed to insert interface metrics for {firewall_name}: {e}")
             return False
-    
+
     def insert_session_statistics(self, firewall_name: str, session_stats: Dict[str, Any]) -> bool:
         """Insert session statistics data"""
         try:
             # Auto-register firewall if metrics include host information
-            if 'firewall_host' in session_stats:
-                self.register_firewall(firewall_name, session_stats['firewall_host'])
-            
+            if "firewall_host" in session_stats:
+                self.register_firewall(firewall_name, session_stats["firewall_host"])
+
             with self._get_connection() as conn:
-                timestamp = session_stats.get('timestamp')
+                timestamp = session_stats.get("timestamp")
                 if isinstance(timestamp, str):
                     timestamp = parse_iso_datetime(timestamp)
                 elif timestamp is None:
                     timestamp = datetime.now(timezone.utc)
                 elif isinstance(timestamp, datetime) and timestamp.tzinfo is None:
                     timestamp = timestamp.replace(tzinfo=timezone.utc)
-                
-                conn.execute("""
+
+                conn.execute(
+                    """
                     INSERT INTO session_statistics (
                         firewall_name, timestamp, active_sessions, max_sessions,
                         tcp_sessions, udp_sessions, icmp_sessions, session_rate
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    firewall_name,
-                    timestamp,
-                    session_stats.get('active_sessions', 0),
-                    session_stats.get('max_sessions', 0),
-                    session_stats.get('tcp_sessions', 0),
-                    session_stats.get('udp_sessions', 0),
-                    session_stats.get('icmp_sessions', 0),
-                    session_stats.get('session_rate', 0.0)
-                ))
+                """,
+                    (
+                        firewall_name,
+                        timestamp,
+                        session_stats.get("active_sessions", 0),
+                        session_stats.get("max_sessions", 0),
+                        session_stats.get("tcp_sessions", 0),
+                        session_stats.get("udp_sessions", 0),
+                        session_stats.get("icmp_sessions", 0),
+                        session_stats.get("session_rate", 0.0),
+                    ),
+                )
                 conn.commit()
                 return True
         except Exception as e:
@@ -1220,7 +1295,7 @@ class EnhancedMetricsDatabase:
         """Insert Fortinet-specific metrics data"""
         try:
             with self._get_connection() as conn:
-                timestamp = metrics.get('timestamp')
+                timestamp = metrics.get("timestamp")
                 if isinstance(timestamp, str):
                     timestamp = parse_iso_datetime(timestamp)
                 elif timestamp is None:
@@ -1228,19 +1303,22 @@ class EnhancedMetricsDatabase:
                 elif isinstance(timestamp, datetime) and timestamp.tzinfo is None:
                     timestamp = timestamp.replace(tzinfo=timezone.utc)
 
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT INTO fortinet_metrics (
                         firewall_name, timestamp, cpu_usage, memory_usage_percent,
                         session_setup_rate, npu_sessions
                     ) VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    firewall_name,
-                    timestamp,
-                    metrics.get('cpu_usage'),
-                    metrics.get('memory_usage_percent'),
-                    metrics.get('session_setup_rate'),
-                    metrics.get('npu_sessions')
-                ))
+                """,
+                    (
+                        firewall_name,
+                        timestamp,
+                        metrics.get("cpu_usage"),
+                        metrics.get("memory_usage_percent"),
+                        metrics.get("session_setup_rate"),
+                        metrics.get("npu_sessions"),
+                    ),
+                )
                 conn.commit()
                 return True
         except Exception as e:
@@ -1251,7 +1329,7 @@ class EnhancedMetricsDatabase:
         """Insert Palo Alto-specific metrics data"""
         try:
             with self._get_connection() as conn:
-                timestamp = metrics.get('timestamp')
+                timestamp = metrics.get("timestamp")
                 if isinstance(timestamp, str):
                     timestamp = parse_iso_datetime(timestamp)
                 elif timestamp is None:
@@ -1259,31 +1337,37 @@ class EnhancedMetricsDatabase:
                 elif isinstance(timestamp, datetime) and timestamp.tzinfo is None:
                     timestamp = timestamp.replace(tzinfo=timezone.utc)
 
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT INTO palo_alto_metrics (
                         firewall_name, timestamp, mgmt_cpu,
                         data_plane_cpu_mean, data_plane_cpu_max,
                         data_plane_cpu_p95, pbuf_util_percent
                     ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    firewall_name,
-                    timestamp,
-                    metrics.get('mgmt_cpu'),
-                    metrics.get('data_plane_cpu_mean'),
-                    metrics.get('data_plane_cpu_max'),
-                    metrics.get('data_plane_cpu_p95'),
-                    metrics.get('pbuf_util_percent')
-                ))
+                """,
+                    (
+                        firewall_name,
+                        timestamp,
+                        metrics.get("mgmt_cpu"),
+                        metrics.get("data_plane_cpu_mean"),
+                        metrics.get("data_plane_cpu_max"),
+                        metrics.get("data_plane_cpu_p95"),
+                        metrics.get("pbuf_util_percent"),
+                    ),
+                )
                 conn.commit()
                 return True
         except Exception as e:
             LOG.error(f"Failed to insert Palo Alto metrics for {firewall_name}: {e}")
             return False
 
-    def get_fortinet_metrics(self, firewall_name: str,
-                            start_time: Optional[datetime] = None,
-                            end_time: Optional[datetime] = None,
-                            limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_fortinet_metrics(
+        self,
+        firewall_name: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """Get Fortinet-specific metrics for a firewall"""
         try:
             with self._get_connection() as conn:
@@ -1315,10 +1399,13 @@ class EnhancedMetricsDatabase:
             LOG.error(f"Failed to get Fortinet metrics for {firewall_name}: {e}")
             return []
 
-    def get_palo_alto_metrics(self, firewall_name: str,
-                             start_time: Optional[datetime] = None,
-                             end_time: Optional[datetime] = None,
-                             limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_palo_alto_metrics(
+        self,
+        firewall_name: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """Get Palo Alto-specific metrics for a firewall"""
         try:
             with self._get_connection() as conn:
@@ -1350,10 +1437,14 @@ class EnhancedMetricsDatabase:
             LOG.error(f"Failed to get Palo Alto metrics for {firewall_name}: {e}")
             return []
 
-    def get_vendor_metrics(self, firewall_name: str, vendor_type: str,
-                          start_time: Optional[datetime] = None,
-                          end_time: Optional[datetime] = None,
-                          limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_vendor_metrics(
+        self,
+        firewall_name: str,
+        vendor_type: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Get vendor-specific metrics for a firewall.
 
@@ -1367,60 +1458,68 @@ class EnhancedMetricsDatabase:
         Returns:
             List of vendor-specific metrics
         """
-        if vendor_type == 'fortinet':
+        if vendor_type == "fortinet":
             return self.get_fortinet_metrics(firewall_name, start_time, end_time, limit)
-        elif vendor_type == 'palo_alto':
+        elif vendor_type == "palo_alto":
             return self.get_palo_alto_metrics(firewall_name, start_time, end_time, limit)
-        elif vendor_type == 'cisco_firepower':
+        elif vendor_type == "cisco_firepower":
             # Placeholder - return empty list until Cisco is implemented
             return []
         else:
             LOG.warning(f"Unknown vendor type: {vendor_type}")
             return []
 
-    def get_interface_metrics(self, firewall_name: str, interface_name: str = None,
-                            start_time: Optional[datetime] = None,
-                            end_time: Optional[datetime] = None,
-                            limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_interface_metrics(
+        self,
+        firewall_name: str,
+        interface_name: str = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """Get interface metrics for a firewall"""
         try:
             with self._get_connection() as conn:
                 query = """
-                    SELECT * FROM interface_metrics 
+                    SELECT * FROM interface_metrics
                     WHERE firewall_name = ?
                 """
                 params = [firewall_name]
-                
+
                 if interface_name:
                     query += " AND interface_name = ?"
                     params.append(interface_name)
-                
+
                 if start_time:
                     query += " AND timestamp >= ?"
                     params.append(start_time)
-                
+
                 if end_time:
                     query += " AND timestamp <= ?"
                     params.append(end_time)
-                
+
                 query += " ORDER BY timestamp DESC"
-                
+
                 if limit:
                     query += " LIMIT ?"
                     params.append(limit)
-                
+
                 cursor = conn.execute(query, params)
                 rows = cursor.fetchall()
-                
+
                 return [dict(row) for row in rows]
         except Exception as e:
             LOG.error(f"Failed to get interface metrics for {firewall_name}: {e}")
             return []
 
-    def get_interface_metrics_batch(self, firewall_name: str, interface_names: List[str],
-                                   start_time: Optional[datetime] = None,
-                                   end_time: Optional[datetime] = None,
-                                   limit: Optional[int] = None) -> Dict[str, List[Dict[str, Any]]]:
+    def get_interface_metrics_batch(
+        self,
+        firewall_name: str,
+        interface_names: List[str],
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Get interface metrics for multiple interfaces in a single query (fixes N+1 problem)
         Returns dict mapping interface_name to list of metrics
@@ -1431,7 +1530,7 @@ class EnhancedMetricsDatabase:
         try:
             with self._get_connection() as conn:
                 # Build query with IN clause for multiple interfaces
-                placeholders = ','.join('?' * len(interface_names))
+                placeholders = ",".join("?" * len(interface_names))
                 query = f"""
                     SELECT * FROM interface_metrics
                     WHERE firewall_name = ?
@@ -1460,7 +1559,7 @@ class EnhancedMetricsDatabase:
                 result = {}
                 for row in rows:
                     row_dict = dict(row)
-                    iface = row_dict['interface_name']
+                    iface = row_dict["interface_name"]
                     if iface not in result:
                         result[iface] = []
 
@@ -1468,10 +1567,12 @@ class EnhancedMetricsDatabase:
                     if limit is None or len(result[iface]) < limit:
                         result[iface].append(row_dict)
 
-                LOG.info(f"Batch query fetched data for {len(result)} interfaces (up to {limit or 'all'} points per interface)")
+                iface_count = len(result)
+                max_pts = limit or "all"
+                LOG.info(f"Batch query: {iface_count} interfaces (up to {max_pts} pts)")
                 if limit:
                     total_points = sum(len(points) for points in result.values())
-                    LOG.debug(f"Returned {total_points} total data points across {len(result)} interfaces")
+                    LOG.debug(f"Returned {total_points} points across {iface_count} interfaces")
 
                 return result
 
@@ -1479,60 +1580,68 @@ class EnhancedMetricsDatabase:
             LOG.error(f"Failed to get interface metrics batch for {firewall_name}: {e}")
             return {}
 
-    def get_session_statistics(self, firewall_name: str,
-                             start_time: Optional[datetime] = None,
-                             end_time: Optional[datetime] = None,
-                             limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_session_statistics(
+        self,
+        firewall_name: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """Get session statistics for a firewall"""
         try:
             with self._get_connection() as conn:
                 query = """
-                    SELECT * FROM session_statistics 
+                    SELECT * FROM session_statistics
                     WHERE firewall_name = ?
                 """
                 params = [firewall_name]
-                
+
                 if start_time:
                     query += " AND timestamp >= ?"
                     params.append(start_time)
-                
+
                 if end_time:
                     query += " AND timestamp <= ?"
                     params.append(end_time)
-                
+
                 query += " ORDER BY timestamp DESC"
-                
+
                 if limit:
                     query += " LIMIT ?"
                     params.append(limit)
-                
+
                 cursor = conn.execute(query, params)
                 rows = cursor.fetchall()
-                
+
                 return [dict(row) for row in rows]
         except Exception as e:
             LOG.error(f"Failed to get session statistics for {firewall_name}: {e}")
             return []
-    
+
     def get_available_interfaces(self, firewall_name: str) -> List[str]:
         """Get list of available interfaces for a firewall"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT DISTINCT interface_name
                     FROM interface_metrics
                     WHERE firewall_name = ?
                     ORDER BY interface_name
-                """, (firewall_name,))
+                """,
+                    (firewall_name,),
+                )
 
                 return [row[0] for row in cursor.fetchall()]
         except Exception as e:
             LOG.error(f"Failed to get available interfaces for {firewall_name}: {e}")
             return []
 
-    def get_latest_interface_summary(self, firewall_name: str, interface_names: List[str]) -> Dict[str, Dict[str, Any]]:
+    def get_latest_interface_summary(
+        self, firewall_name: str, interface_names: List[str]
+    ) -> Dict[str, Dict[str, Any]]:
         """
-        Get latest metrics for multiple interfaces in a single query (fixes N+1 problem for dashboard)
+        Get latest metrics for multiple interfaces in a single query.
         Returns dict mapping interface_name to latest metrics
         """
         if not interface_names:
@@ -1541,7 +1650,7 @@ class EnhancedMetricsDatabase:
         try:
             with self._get_connection() as conn:
                 # Build query with IN clause and get latest record per interface
-                placeholders = ','.join('?' * len(interface_names))
+                placeholders = ",".join("?" * len(interface_names))
                 query = f"""
                     SELECT im.*
                     FROM interface_metrics im
@@ -1563,7 +1672,7 @@ class EnhancedMetricsDatabase:
                 result = {}
                 for row in rows:
                     row_dict = dict(row)
-                    result[row_dict['interface_name']] = row_dict
+                    result[row_dict["interface_name"]] = row_dict
 
                 LOG.debug(f"Fetched latest metrics for {len(result)} interfaces in single query")
                 return result
@@ -1571,45 +1680,50 @@ class EnhancedMetricsDatabase:
         except Exception as e:
             LOG.error(f"Failed to get latest interface summary for {firewall_name}: {e}")
             return {}
-    
+
     # Include all original methods from the base database class
-    def get_metrics(self, firewall_name: str, start_time: Optional[datetime] = None,
-                   end_time: Optional[datetime] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_metrics(
+        self,
+        firewall_name: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """Retrieve metrics for a firewall within time range"""
         try:
             with self._get_connection() as conn:
                 query = """
-                    SELECT * FROM metrics 
+                    SELECT * FROM metrics
                     WHERE firewall_name = ?
                 """
                 params = [firewall_name]
-                
+
                 if start_time:
                     query += " AND timestamp >= ?"
                     params.append(start_time)
-                
+
                 if end_time:
                     query += " AND timestamp <= ?"
                     params.append(end_time)
-                
+
                 query += " ORDER BY timestamp DESC"
-                
+
                 if limit:
                     query += " LIMIT ?"
                     params.append(limit)
-                
+
                 cursor = conn.execute(query, params)
                 rows = cursor.fetchall()
-                
+
                 return [dict(row) for row in rows]
         except Exception as e:
             LOG.error(f"Failed to retrieve metrics for {firewall_name}: {e}")
             return []
-    
+
     def get_latest_metrics(self, firewall_name: str, count: int = 100) -> List[Dict[str, Any]]:
         """Get the latest N metrics for a firewall"""
         return self.get_metrics(firewall_name, limit=count)
-    
+
     def get_all_firewalls(self) -> List[Dict[str, Any]]:
         """Get list of all registered firewalls with hardware info"""
         try:
@@ -1631,58 +1745,58 @@ class EnhancedMetricsDatabase:
         except Exception as e:
             LOG.error(f"Failed to retrieve firewalls: {e}")
             return []
-    
+
     def get_database_stats(self) -> Dict[str, Any]:
         """Get enhanced database statistics including interface data"""
         try:
             with self._get_connection() as conn:
                 # Get total metrics count
                 cursor = conn.execute("SELECT COUNT(*) as total_metrics FROM metrics")
-                total_metrics = cursor.fetchone()['total_metrics']
-                
+                total_metrics = cursor.fetchone()["total_metrics"]
+
                 # Get metrics per firewall
                 cursor = conn.execute("""
-                    SELECT firewall_name, COUNT(*) as count 
-                    FROM metrics 
+                    SELECT firewall_name, COUNT(*) as count
+                    FROM metrics
                     GROUP BY firewall_name
                 """)
-                firewall_counts = {row['firewall_name']: row['count'] for row in cursor.fetchall()}
-                
+                firewall_counts = {row["firewall_name"]: row["count"] for row in cursor.fetchall()}
+
                 # Get date range
                 cursor = conn.execute("""
-                    SELECT MIN(timestamp) as earliest, MAX(timestamp) as latest 
+                    SELECT MIN(timestamp) as earliest, MAX(timestamp) as latest
                     FROM metrics
                 """)
                 date_range = cursor.fetchone()
-                
+
                 # Get interface metrics count
                 cursor = conn.execute("SELECT COUNT(*) as interface_metrics FROM interface_metrics")
-                interface_metrics_count = cursor.fetchone()['interface_metrics']
-                
+                interface_metrics_count = cursor.fetchone()["interface_metrics"]
+
                 # Get session statistics count
                 cursor = conn.execute("SELECT COUNT(*) as session_stats FROM session_statistics")
-                session_stats_count = cursor.fetchone()['session_stats']
-                
+                session_stats_count = cursor.fetchone()["session_stats"]
+
                 # Get database file size
                 db_size = self.db_path.stat().st_size if self.db_path.exists() else 0
-                
+
                 stats = {
-                    'total_metrics': total_metrics,
-                    'interface_metrics_count': interface_metrics_count,
-                    'session_statistics_count': session_stats_count,
-                    'firewall_counts': firewall_counts,
-                    'earliest_metric': date_range['earliest'],
-                    'latest_metric': date_range['latest'],
-                    'database_size_bytes': db_size,
-                    'database_size_mb': round(db_size / (1024 * 1024), 2),
-                    'enhanced_monitoring_available': True
+                    "total_metrics": total_metrics,
+                    "interface_metrics_count": interface_metrics_count,
+                    "session_statistics_count": session_stats_count,
+                    "firewall_counts": firewall_counts,
+                    "earliest_metric": date_range["earliest"],
+                    "latest_metric": date_range["latest"],
+                    "database_size_bytes": db_size,
+                    "database_size_mb": round(db_size / (1024 * 1024), 2),
+                    "enhanced_monitoring_available": True,
                 }
-                
+
                 return stats
         except Exception as e:
             LOG.error(f"Failed to get enhanced database stats: {e}")
             return {}
-    
+
     def cleanup_old_metrics(self, days_to_keep: int = 30) -> int:
         """Remove metrics older than specified days from all tables"""
         try:
@@ -1695,11 +1809,15 @@ class EnhancedMetricsDatabase:
                 deleted_metrics = cursor.rowcount
 
                 # Clean interface metrics
-                cursor = conn.execute("DELETE FROM interface_metrics WHERE timestamp < ?", (cutoff_time,))
+                cursor = conn.execute(
+                    "DELETE FROM interface_metrics WHERE timestamp < ?", (cutoff_time,)
+                )
                 deleted_interface = cursor.rowcount
 
                 # Clean session statistics
-                cursor = conn.execute("DELETE FROM session_statistics WHERE timestamp < ?", (cutoff_time,))
+                cursor = conn.execute(
+                    "DELETE FROM session_statistics WHERE timestamp < ?", (cutoff_time,)
+                )
                 deleted_sessions = cursor.rowcount
 
                 # Clean vendor-specific metrics tables
@@ -1707,60 +1825,80 @@ class EnhancedMetricsDatabase:
                 deleted_palo_alto = 0
                 deleted_cisco = 0
                 try:
-                    cursor = conn.execute("DELETE FROM fortinet_metrics WHERE timestamp < ?", (cutoff_time,))
+                    cursor = conn.execute(
+                        "DELETE FROM fortinet_metrics WHERE timestamp < ?", (cutoff_time,)
+                    )
                     deleted_fortinet = cursor.rowcount
                 except Exception:
                     pass  # Table may not exist
 
                 try:
-                    cursor = conn.execute("DELETE FROM palo_alto_metrics WHERE timestamp < ?", (cutoff_time,))
+                    cursor = conn.execute(
+                        "DELETE FROM palo_alto_metrics WHERE timestamp < ?", (cutoff_time,)
+                    )
                     deleted_palo_alto = cursor.rowcount
                 except Exception:
                     pass  # Table may not exist
 
                 try:
-                    cursor = conn.execute("DELETE FROM cisco_firepower_metrics WHERE timestamp < ?", (cutoff_time,))
+                    cursor = conn.execute(
+                        "DELETE FROM cisco_firepower_metrics WHERE timestamp < ?", (cutoff_time,)
+                    )
                     deleted_cisco = cursor.rowcount
                 except Exception:
                     pass  # Table may not exist
 
                 conn.commit()
 
-                total_deleted = (deleted_metrics + deleted_interface + deleted_sessions +
-                               deleted_fortinet + deleted_palo_alto + deleted_cisco)
+                total_deleted = (
+                    deleted_metrics
+                    + deleted_interface
+                    + deleted_sessions
+                    + deleted_fortinet
+                    + deleted_palo_alto
+                    + deleted_cisco
+                )
 
                 if total_deleted > 0:
-                    LOG.info(f"Cleaned up {deleted_metrics} metrics, {deleted_interface} interface records, "
-                           f"{deleted_sessions} session records, {deleted_fortinet} Fortinet records, "
-                           f"{deleted_palo_alto} Palo Alto records (older than {days_to_keep} days)")
+                    LOG.info(
+                        f"Cleaned up {deleted_metrics} metrics, {deleted_interface} interface, "
+                        f"{deleted_sessions} session, {deleted_fortinet} Fortinet, "
+                        f"{deleted_palo_alto} PA records (>{days_to_keep} days old)"
+                    )
 
                 return total_deleted
         except Exception as e:
             LOG.error(f"Failed to cleanup old data: {e}")
             return 0
-    
-    def export_metrics_to_dict(self, firewall_name: str, start_time: Optional[datetime] = None,
-                              end_time: Optional[datetime] = None) -> List[Dict[str, Any]]:
+
+    def export_metrics_to_dict(
+        self,
+        firewall_name: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
         """Export enhanced metrics to dictionary format suitable for pandas/CSV"""
         metrics = self.get_metrics(firewall_name, start_time, end_time)
-        
+
         # Convert timestamps to ISO format strings for export
         for metric in metrics:
-            if 'timestamp' in metric and metric['timestamp']:
-                if isinstance(metric['timestamp'], str):
+            if "timestamp" in metric and metric["timestamp"]:
+                if isinstance(metric["timestamp"], str):
                     # Already a string, ensure it's ISO format
                     try:
-                        dt = parse_iso_datetime(metric['timestamp'])
-                        metric['timestamp'] = dt.isoformat()
-                    except:
+                        dt = parse_iso_datetime(metric["timestamp"])
+                        metric["timestamp"] = dt.isoformat()
+                    except Exception:
                         pass  # Keep original if parsing fails
                 else:
                     # Convert datetime to ISO string
-                    metric['timestamp'] = metric['timestamp'].isoformat()
-        
+                    metric["timestamp"] = metric["timestamp"].isoformat()
+
         return metrics
+
 
 # Maintain backward compatibility
 class MetricsDatabase(EnhancedMetricsDatabase):
     """Backward compatibility alias for the enhanced database"""
+
     pass

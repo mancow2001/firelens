@@ -3,18 +3,20 @@
 FireLens Monitor - SSL/TLS Certificate Management Module
 Handles certificate generation, validation, and management for the web dashboard.
 """
-import logging
+
 import ipaddress
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple
 
 try:
     from cryptography import x509
-    from cryptography.x509.oid import NameOID, ExtensionOID
+    from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
-    from cryptography.hazmat.backends import default_backend
+    from cryptography.x509.oid import ExtensionOID, NameOID
+
     CRYPTOGRAPHY_OK = True
 except ImportError:
     CRYPTOGRAPHY_OK = False
@@ -42,7 +44,7 @@ class SSLManager:
         hostname: str = "localhost",
         valid_days: int = 365,
         organization: str = "FireLens",
-        key_size: int = 4096
+        key_size: int = 4096,
     ) -> Tuple[str, str]:
         """
         Generate a self-signed certificate and private key.
@@ -60,26 +62,28 @@ class SSLManager:
             RuntimeError: If cryptography library is not available
         """
         if not CRYPTOGRAPHY_OK:
-            raise RuntimeError("cryptography library not available - install with: pip install cryptography")
+            raise RuntimeError(
+                "cryptography library not available - install with: pip install cryptography"
+            )
 
         LOG.info(f"Generating self-signed certificate for {hostname} (valid for {valid_days} days)")
 
         # Generate RSA private key
         key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=key_size,
-            backend=default_backend()
+            public_exponent=65537, key_size=key_size, backend=default_backend()
         )
 
         # Build certificate subject and issuer
-        subject = issuer = x509.Name([
-            x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
-            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "California"),
-            x509.NameAttribute(NameOID.LOCALITY_NAME, "San Francisco"),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
-            x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "IT Security"),
-            x509.NameAttribute(NameOID.COMMON_NAME, hostname),
-        ])
+        subject = issuer = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+                x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "California"),
+                x509.NameAttribute(NameOID.LOCALITY_NAME, "San Francisco"),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
+                x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "IT Security"),
+                x509.NameAttribute(NameOID.COMMON_NAME, hostname),
+            ]
+        )
 
         # Build Subject Alternative Names
         san_entries = [
@@ -124,9 +128,11 @@ class SSLManager:
                 critical=True,
             )
             .add_extension(
-                x509.ExtendedKeyUsage([
-                    x509.oid.ExtendedKeyUsageOID.SERVER_AUTH,
-                ]),
+                x509.ExtendedKeyUsage(
+                    [
+                        x509.oid.ExtendedKeyUsageOID.SERVER_AUTH,
+                    ]
+                ),
                 critical=False,
             )
             .sign(key, hashes.SHA256(), default_backend())
@@ -134,11 +140,13 @@ class SSLManager:
 
         # Write private key
         with open(self.web_key_path, "wb") as f:
-            f.write(key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
-            ))
+            f.write(
+                key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption(),
+                )
+            )
         self.web_key_path.chmod(0o600)  # Restrict key file permissions
 
         # Write certificate
@@ -160,7 +168,7 @@ class SSLManager:
                 return False
 
             # Check if certificate has expired
-            not_after = cert_info.get('not_after')
+            not_after = cert_info.get("not_after")
             if not_after and isinstance(not_after, datetime):
                 if datetime.utcnow() > not_after:
                     LOG.warning("Web server certificate has expired")
@@ -194,19 +202,19 @@ class SSLManager:
             subject_parts = {}
             for attr in cert.subject:
                 if attr.oid == NameOID.COMMON_NAME:
-                    subject_parts['cn'] = attr.value
+                    subject_parts["cn"] = attr.value
                 elif attr.oid == NameOID.ORGANIZATION_NAME:
-                    subject_parts['o'] = attr.value
+                    subject_parts["o"] = attr.value
                 elif attr.oid == NameOID.COUNTRY_NAME:
-                    subject_parts['c'] = attr.value
+                    subject_parts["c"] = attr.value
 
             # Extract issuer information
             issuer_parts = {}
             for attr in cert.issuer:
                 if attr.oid == NameOID.COMMON_NAME:
-                    issuer_parts['cn'] = attr.value
+                    issuer_parts["cn"] = attr.value
                 elif attr.oid == NameOID.ORGANIZATION_NAME:
-                    issuer_parts['o'] = attr.value
+                    issuer_parts["o"] = attr.value
 
             # Check if self-signed
             is_self_signed = cert.subject == cert.issuer
@@ -214,7 +222,9 @@ class SSLManager:
             # Get Subject Alternative Names
             san_list = []
             try:
-                san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+                san_ext = cert.extensions.get_extension_for_oid(
+                    ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+                )
                 for name in san_ext.value:
                     san_list.append(str(name.value))
             except x509.ExtensionNotFound:
@@ -222,25 +232,29 @@ class SSLManager:
 
             # Calculate fingerprint
             fingerprint = cert.fingerprint(hashes.SHA256()).hex()
-            fingerprint_formatted = ':'.join(fingerprint[i:i+2].upper() for i in range(0, len(fingerprint), 2))
+            fingerprint_formatted = ":".join(
+                fingerprint[i : i + 2].upper() for i in range(0, len(fingerprint), 2)
+            )
 
             # Days until expiry
-            days_until_expiry = (cert.not_valid_after_utc.replace(tzinfo=None) - datetime.utcnow()).days
+            days_until_expiry = (
+                cert.not_valid_after_utc.replace(tzinfo=None) - datetime.utcnow()
+            ).days
 
             return {
-                'subject': subject_parts,
-                'issuer': issuer_parts,
-                'common_name': subject_parts.get('cn', ''),
-                'organization': subject_parts.get('o', ''),
-                'not_before': cert.not_valid_before_utc.replace(tzinfo=None),
-                'not_after': cert.not_valid_after_utc.replace(tzinfo=None),
-                'serial_number': str(cert.serial_number),
-                'fingerprint_sha256': fingerprint_formatted,
-                'is_self_signed': is_self_signed,
-                'san': san_list,
-                'days_until_expiry': days_until_expiry,
-                'expiring_soon': days_until_expiry <= 30,
-                'expired': days_until_expiry < 0
+                "subject": subject_parts,
+                "issuer": issuer_parts,
+                "common_name": subject_parts.get("cn", ""),
+                "organization": subject_parts.get("o", ""),
+                "not_before": cert.not_valid_before_utc.replace(tzinfo=None),
+                "not_after": cert.not_valid_after_utc.replace(tzinfo=None),
+                "serial_number": str(cert.serial_number),
+                "fingerprint_sha256": fingerprint_formatted,
+                "is_self_signed": is_self_signed,
+                "san": san_list,
+                "days_until_expiry": days_until_expiry,
+                "expiring_soon": days_until_expiry <= 30,
+                "expired": days_until_expiry < 0,
             }
         except Exception as e:
             LOG.error(f"Error reading certificate info: {e}")
@@ -268,12 +282,12 @@ class SSLManager:
         try:
             # Backup existing cert if present
             if self.web_cert_path.exists():
-                backup_path = self.web_cert_path.with_suffix('.crt.bak')
+                backup_path = self.web_cert_path.with_suffix(".crt.bak")
                 self.web_cert_path.rename(backup_path)
                 LOG.info(f"Backed up existing certificate to {backup_path}")
 
             if self.web_key_path.exists():
-                backup_path = self.web_key_path.with_suffix('.key.bak')
+                backup_path = self.web_key_path.with_suffix(".key.bak")
                 self.web_key_path.rename(backup_path)
 
             # Write new certificate
@@ -310,25 +324,24 @@ class SSLManager:
         try:
             # Load certificate
             cert = x509.load_pem_x509_certificate(
-                cert_pem.encode() if isinstance(cert_pem, str) else cert_pem,
-                default_backend()
+                cert_pem.encode() if isinstance(cert_pem, str) else cert_pem, default_backend()
             )
 
             # Load private key
             key = serialization.load_pem_private_key(
                 key_pem.encode() if isinstance(key_pem, str) else key_pem,
                 password=None,
-                backend=default_backend()
+                backend=default_backend(),
             )
 
             # Verify public key matches
             cert_public_key = cert.public_key().public_bytes(
                 encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
             )
             key_public_key = key.public_key().public_bytes(
                 encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
             )
 
             if cert_public_key != key_public_key:
@@ -349,9 +362,7 @@ class SSLManager:
             return False, f"Validation error: {str(e)}"
 
     def validate_cert_chain(
-        self,
-        cert_pem: str,
-        ca_bundle_path: Optional[str] = None
+        self, cert_pem: str, ca_bundle_path: Optional[str] = None
     ) -> Tuple[bool, str]:
         """
         Validate certificate against a CA bundle.
@@ -372,8 +383,7 @@ class SSLManager:
         try:
             # Load the certificate
             cert = x509.load_pem_x509_certificate(
-                cert_pem.encode() if isinstance(cert_pem, str) else cert_pem,
-                default_backend()
+                cert_pem.encode() if isinstance(cert_pem, str) else cert_pem, default_backend()
             )
 
             # For self-signed certs, chain validation doesn't apply
@@ -397,7 +407,7 @@ class SSLManager:
                 end = ca_data.find(pem_end, start)
                 if end == -1:
                     break
-                cert_pem_bytes = ca_data[start:end + len(pem_end)]
+                cert_pem_bytes = ca_data[start : end + len(pem_end)]
                 try:
                     ca_cert = x509.load_pem_x509_certificate(cert_pem_bytes, default_backend())
                     ca_certs.append(ca_cert)
@@ -417,7 +427,7 @@ class SSLManager:
                         ca_cert.public_key().verify(
                             cert.signature,
                             cert.tbs_certificate_bytes,
-                            cert.signature_algorithm_parameters
+                            cert.signature_algorithm_parameters,
                         )
                         return True, "Certificate chain validated successfully"
                     except Exception:
@@ -446,7 +456,10 @@ class SSLManager:
 
             if deleted:
                 LOG.info(f"Deleted SSL {', '.join(deleted)}")
-                return True, f"Deleted {', '.join(deleted)}. New self-signed certificate will be generated on restart."
+                return (
+                    True,
+                    f"Deleted {', '.join(deleted)}. New cert will be generated on restart.",
+                )
             else:
                 return False, "No certificate files found to delete"
 

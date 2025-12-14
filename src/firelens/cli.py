@@ -4,6 +4,7 @@ FireLens Monitor - Command Line Interface
 
 Entry points for the firelens and firelens-ctl commands.
 """
+
 import argparse
 import subprocess
 import sys
@@ -30,47 +31,31 @@ Examples:
   firelens create-config              Create example configuration file
   firelens --port 9090                Override web dashboard port
   firelens --version                  Show version information
-        """
+        """,
     )
 
-    parser.add_argument(
-        "--version", "-V",
-        action="version",
-        version=f"%(prog)s {__version__}"
-    )
+    parser.add_argument("--version", "-V", action="version", version=f"%(prog)s {__version__}")
 
     parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         default=None,
-        help="Configuration file path (searches defaults if not specified)"
+        help="Configuration file path (searches defaults if not specified)",
     )
+    parser.add_argument("--port", "-p", type=int, help="Override web dashboard port")
     parser.add_argument(
-        "--port", "-p",
-        type=int,
-        help="Override web dashboard port"
-    )
-    parser.add_argument(
-        "--log-level",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="Override log level"
+        "--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Override log level"
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # create-config command
-    config_parser = subparsers.add_parser(
-        "create-config",
-        help="Create example configuration file"
+    config_parser = subparsers.add_parser("create-config", help="Create example configuration file")
+    config_parser.add_argument(
+        "--output", "-o", default="config.yaml", help="Output file path (default: config.yaml)"
     )
     config_parser.add_argument(
-        "--output", "-o",
-        default="config.yaml",
-        help="Output file path (default: config.yaml)"
-    )
-    config_parser.add_argument(
-        "--force", "-f",
-        action="store_true",
-        help="Overwrite existing configuration file"
+        "--force", "-f", action="store_true", help="Overwrite existing configuration file"
     )
 
     # version command (alternative to --version)
@@ -158,25 +143,19 @@ Examples:
   firelens-ctl restart    Restart the service
   firelens-ctl logs       Follow service logs
   firelens-ctl config     Show current configuration
-        """
+        """,
     )
 
-    parser.add_argument(
-        "--version", "-V",
-        action="version",
-        version=f"firelens-ctl {__version__}"
-    )
+    parser.add_argument("--version", "-V", action="version", version=f"firelens-ctl {__version__}")
 
     parser.add_argument(
         "action",
         choices=["start", "stop", "restart", "status", "logs", "config", "enable", "disable"],
-        help="Service action to perform"
+        help="Service action to perform",
     )
 
     parser.add_argument(
-        "--service-name", "-n",
-        default="firelens",
-        help="Service name (default: firelens)"
+        "--service-name", "-n", default="firelens", help="Service name (default: firelens)"
     )
 
     args = parser.parse_args()
@@ -218,7 +197,7 @@ Examples:
             result = subprocess.run(cmd, check=False)
             return result.returncode
         except FileNotFoundError:
-            print(f"Error: systemd not available.")
+            print("Error: systemd not available.")
             print("Run FireLens manually with: firelens --config /path/to/config.yaml")
             return 1
 

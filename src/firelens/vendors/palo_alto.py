@@ -3,19 +3,20 @@
 FireLens Monitor - Palo Alto Networks Vendor Implementation
 Wraps existing PAN-OS API client and parsing functions
 """
+
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
+from . import register_vendor
 from .base import (
-    VendorAdapter,
-    VendorClient,
+    HardwareInfo,
     InterfaceSample,
     SessionStats,
-    HardwareInfo,
     SystemMetrics,
+    VendorAdapter,
+    VendorClient,
 )
-from . import register_vendor
 
 LOG = logging.getLogger("FireLens.vendors.palo_alto")
 
@@ -41,26 +42,58 @@ def _ensure_collectors_imported():
 
     try:
         from ..collectors import (
-            FireLensClient as _PanOSAPIClientImport,
             FIREWALL_CORE_ARCHITECTURE as _FIREWALL_CORE_ARCHITECTURE,
-            is_affected_by_dp_core_issue as _is_affected_by_dp_core_issue,
-            get_core_architecture as _get_core_architecture,
-            parse_dp_cpu_from_rm_your_panos11 as _parse_dp_cpu_from_rm_your_panos11,
-            parse_pbuf_live_from_rm_your_panos11 as _parse_pbuf_live_from_rm_your_panos11,
-            parse_cpu_from_debug_status as _parse_cpu_from_debug_status,
-            parse_cpu_from_system_info as _parse_cpu_from_system_info,
-            parse_cpu_from_top as _parse_cpu_from_top,
-            parse_system_info_hardware as _parse_system_info_hardware,
-            parse_mgmt_cpu_from_load_average as _parse_mgmt_cpu_from_load_average,
-            parse_management_cpu_from_system_resources as _parse_management_cpu_from_system_resources,
+        )
+        from ..collectors import (
+            FireLensClient as _PanOSAPIClientImport,
+        )
+        from ..collectors import (
             _aggregate as __aggregate,
+        )
+        from ..collectors import (
             calculate_percentile as _calculate_percentile,
+        )
+        from ..collectors import (
+            get_core_architecture as _get_core_architecture,
+        )
+        from ..collectors import (
+            is_affected_by_dp_core_issue as _is_affected_by_dp_core_issue,
+        )
+        from ..collectors import (
+            parse_cpu_from_debug_status as _parse_cpu_from_debug_status,
+        )
+        from ..collectors import (
+            parse_cpu_from_system_info as _parse_cpu_from_system_info,
+        )
+        from ..collectors import (
+            parse_cpu_from_top as _parse_cpu_from_top,
+        )
+        from ..collectors import (
+            parse_dp_cpu_from_rm_your_panos11 as _parse_dp_cpu_from_rm_your_panos11,
+        )
+        from ..collectors import (
+            parse_management_cpu_from_system_resources as _parse_mgmt_cpu,
+        )
+        from ..collectors import (
+            parse_mgmt_cpu_from_load_average as _parse_mgmt_cpu_from_load_average,
+        )
+        from ..collectors import (
+            parse_pbuf_live_from_rm_your_panos11 as _parse_pbuf_live_from_rm_your_panos11,
+        )
+        from ..collectors import (
+            parse_system_info_hardware as _parse_system_info_hardware,
+        )
+        from ..interface_monitor import (
+            InterfaceSample as _InterfaceSampleImport,
+        )
+        from ..interface_monitor import (
+            discover_interfaces_panos11 as _discover_interfaces_panos11,
         )
         from ..interface_monitor import (
             parse_interface_statistics_your_panos11 as _parse_interface_statistics_your_panos11,
+        )
+        from ..interface_monitor import (
             parse_session_statistics_your_panos11 as _parse_session_statistics_your_panos11,
-            discover_interfaces_panos11 as _discover_interfaces_panos11,
-            InterfaceSample as _InterfaceSampleImport,
         )
 
         # Assign to globals
@@ -75,7 +108,7 @@ def _ensure_collectors_imported():
         parse_cpu_from_top = _parse_cpu_from_top
         parse_system_info_hardware = _parse_system_info_hardware
         parse_mgmt_cpu_from_load_average = _parse_mgmt_cpu_from_load_average
-        parse_management_cpu_from_system_resources = _parse_management_cpu_from_system_resources
+        parse_management_cpu_from_system_resources = _parse_mgmt_cpu
         _aggregate = __aggregate
         calculate_percentile = _calculate_percentile
         parse_interface_statistics_your_panos11 = _parse_interface_statistics_your_panos11
@@ -167,20 +200,22 @@ class PaloAltoClient(VendorClient):
         if xml:
             hw_info, _ = parse_system_info_hardware(xml)
             if hw_info:
-                self._model = hw_info.get('model', '')
+                self._model = hw_info.get("model", "")
                 self._is_affected_model = is_affected_by_dp_core_issue(self._model)
                 self._hardware_info = HardwareInfo(
                     vendor=self.VENDOR_NAME,
-                    model=hw_info.get('model', ''),
-                    serial=hw_info.get('serial', ''),
-                    hostname=hw_info.get('hostname', ''),
-                    sw_version=hw_info.get('sw_version', ''),
+                    model=hw_info.get("model", ""),
+                    serial=hw_info.get("serial", ""),
+                    hostname=hw_info.get("hostname", ""),
+                    sw_version=hw_info.get("sw_version", ""),
                     vendor_specific={
-                        'family': hw_info.get('family', ''),
-                        'platform_family': hw_info.get('platform_family', ''),
-                    }
+                        "family": hw_info.get("family", ""),
+                        "platform_family": hw_info.get("platform_family", ""),
+                    },
                 )
-                LOG.info(f"Detected Palo Alto {self._model} (affected model: {self._is_affected_model})")
+                LOG.info(
+                    f"Detected Palo Alto {self._model} (affected model: {self._is_affected_model})"
+                )
 
     def collect_system_metrics(self) -> SystemMetrics:
         """
@@ -203,7 +238,7 @@ class PaloAltoClient(VendorClient):
             xml = self._client.op("<show><system><resources/></system></show>")
             if xml:
                 metrics, msg = parse_mgmt_cpu_from_load_average(xml, self._model)
-                mgmt_cpu = metrics.get('mgmt_cpu', 0.0)
+                mgmt_cpu = metrics.get("mgmt_cpu", 0.0)
                 vendor_metrics.update(metrics)
                 LOG.debug(f"Mgmt CPU (load avg): {msg}")
         else:
@@ -212,8 +247,8 @@ class PaloAltoClient(VendorClient):
             xml = self._client.request("<request><s><debug><status/></debug></s></request>")
             if xml:
                 metrics, msg = parse_cpu_from_debug_status(xml)
-                if metrics.get('mgmt_cpu_debug'):
-                    mgmt_cpu = metrics['mgmt_cpu_debug']
+                if metrics.get("mgmt_cpu_debug"):
+                    mgmt_cpu = metrics["mgmt_cpu_debug"]
                     vendor_metrics.update(metrics)
                     LOG.debug(f"Mgmt CPU (debug): {msg}")
 
@@ -222,8 +257,8 @@ class PaloAltoClient(VendorClient):
                 xml = self._client.op("<show><system><info/></system></show>")
                 if xml:
                     metrics, msg = parse_cpu_from_system_info(xml)
-                    if metrics.get('mgmt_cpu_load_avg'):
-                        mgmt_cpu = metrics['mgmt_cpu_load_avg']
+                    if metrics.get("mgmt_cpu_load_avg"):
+                        mgmt_cpu = metrics["mgmt_cpu_load_avg"]
                         vendor_metrics.update(metrics)
                         LOG.debug(f"Mgmt CPU (system info): {msg}")
 
@@ -232,8 +267,8 @@ class PaloAltoClient(VendorClient):
                 xml = self._client.op("<show><system><resources/></system></show>")
                 if xml:
                     metrics, msg = parse_cpu_from_top(xml)
-                    if metrics.get('mgmt_cpu'):
-                        mgmt_cpu = metrics['mgmt_cpu']
+                    if metrics.get("mgmt_cpu"):
+                        mgmt_cpu = metrics["mgmt_cpu"]
                         vendor_metrics.update(metrics)
                         LOG.debug(f"Mgmt CPU (top): {msg}")
 
@@ -253,15 +288,17 @@ class PaloAltoClient(VendorClient):
             LOG.debug(f"Packet buffer: {pbuf_msg}")
 
         # Set primary CPU metric
-        vendor_metrics['mgmt_cpu'] = mgmt_cpu
+        vendor_metrics["mgmt_cpu"] = mgmt_cpu
 
         return SystemMetrics(
             timestamp=timestamp,
             cpu_usage=mgmt_cpu,  # Use management CPU as primary
-            vendor_metrics=vendor_metrics
+            vendor_metrics=vendor_metrics,
         )
 
-    def collect_interface_stats(self, interfaces: Optional[List[str]] = None) -> Dict[str, InterfaceSample]:
+    def collect_interface_stats(
+        self, interfaces: Optional[List[str]] = None
+    ) -> Dict[str, InterfaceSample]:
         """
         Collect interface statistics from Palo Alto firewall.
 
@@ -297,7 +334,7 @@ class PaloAltoClient(VendorClient):
                     tx_packets=sample.tx_packets,
                     rx_errors=sample.rx_errors,
                     tx_errors=sample.tx_errors,
-                    success=True
+                    success=True,
                 )
 
         return result
@@ -315,12 +352,12 @@ class PaloAltoClient(VendorClient):
 
         return SessionStats(
             timestamp=timestamp,
-            active_sessions=stats.get('active_sessions', 0),
-            max_sessions=stats.get('max_sessions', 0),
-            tcp_sessions=stats.get('tcp_sessions', 0),
-            udp_sessions=stats.get('udp_sessions', 0),
-            icmp_sessions=stats.get('icmp_sessions', 0),
-            session_rate=stats.get('session_rate', 0.0)
+            active_sessions=stats.get("active_sessions", 0),
+            max_sessions=stats.get("max_sessions", 0),
+            tcp_sessions=stats.get("tcp_sessions", 0),
+            udp_sessions=stats.get("udp_sessions", 0),
+            icmp_sessions=stats.get("icmp_sessions", 0),
+            session_rate=stats.get("session_rate", 0.0),
         )
 
     def get_hardware_info(self) -> HardwareInfo:
@@ -341,11 +378,7 @@ class PaloAltoClient(VendorClient):
 
         # Return empty info if detection failed
         return HardwareInfo(
-            vendor=self.VENDOR_NAME,
-            model="Unknown",
-            serial="",
-            hostname="",
-            sw_version=""
+            vendor=self.VENDOR_NAME, model="Unknown", serial="", hostname="", sw_version=""
         )
 
     def discover_interfaces(self) -> List[str]:
@@ -386,7 +419,9 @@ class PaloAltoAdapter(VendorAdapter):
     def vendor_type(self) -> str:
         return self.VENDOR_TYPE
 
-    def create_client(self, host: str, verify_ssl: bool = True, ca_bundle_path: Optional[str] = None) -> PaloAltoClient:
+    def create_client(
+        self, host: str, verify_ssl: bool = True, ca_bundle_path: Optional[str] = None
+    ) -> PaloAltoClient:
         """
         Create a new Palo Alto API client.
 
@@ -408,18 +443,18 @@ class PaloAltoAdapter(VendorAdapter):
             List of metric names
         """
         return [
-            'cpu_usage',
-            'mgmt_cpu',
-            'mgmt_cpu_debug',
-            'mgmt_cpu_load_avg',
-            'data_plane_cpu',
-            'data_plane_cpu_mean',
-            'data_plane_cpu_max',
-            'data_plane_cpu_p95',
-            'pbuf_util_percent',
-            'active_sessions',
-            'max_sessions',
-            'session_rate',
+            "cpu_usage",
+            "mgmt_cpu",
+            "mgmt_cpu_debug",
+            "mgmt_cpu_load_avg",
+            "data_plane_cpu",
+            "data_plane_cpu_mean",
+            "data_plane_cpu_max",
+            "data_plane_cpu_p95",
+            "pbuf_util_percent",
+            "active_sessions",
+            "max_sessions",
+            "session_rate",
         ]
 
     def get_hardware_fields(self) -> List[str]:
@@ -430,12 +465,12 @@ class PaloAltoAdapter(VendorAdapter):
             List of field names
         """
         return [
-            'model',
-            'serial',
-            'hostname',
-            'sw_version',
-            'family',
-            'platform_family',
+            "model",
+            "serial",
+            "hostname",
+            "sw_version",
+            "family",
+            "platform_family",
         ]
 
     def get_default_exclude_interfaces(self) -> List[str]:
@@ -446,16 +481,16 @@ class PaloAltoAdapter(VendorAdapter):
             List of patterns to exclude (management, loopback, HA, tunnels)
         """
         return [
-            'mgmt',
-            'loopback',
-            'tunnel',
-            'ha1',
-            'ha2',
-            'ha1-a',
-            'ha1-b',
-            'ha2-a',
-            'ha2-b',
-            'vlan',  # Often excludes VLAN interfaces by default
+            "mgmt",
+            "loopback",
+            "tunnel",
+            "ha1",
+            "ha2",
+            "ha1-a",
+            "ha1-b",
+            "ha2-a",
+            "ha2-b",
+            "vlan",  # Often excludes VLAN interfaces by default
         ]
 
 

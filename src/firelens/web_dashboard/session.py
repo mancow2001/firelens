@@ -2,6 +2,7 @@
 FireLens Monitor - Session Manager Module
 Admin authentication and CSRF protection
 """
+
 import logging
 import secrets
 from datetime import datetime, timedelta
@@ -18,20 +19,24 @@ class SessionManager:
         self.timeout = timedelta(minutes=timeout_minutes)
         self.absolute_timeout = timedelta(hours=absolute_timeout_hours)
 
-    def create_session(self, username: str, auth_method: str = 'local',
-                       saml_session_index: Optional[str] = None,
-                       saml_name_id: Optional[str] = None) -> str:
+    def create_session(
+        self,
+        username: str,
+        auth_method: str = "local",
+        saml_session_index: Optional[str] = None,
+        saml_name_id: Optional[str] = None,
+    ) -> str:
         """Create a new session and return the token"""
         token = secrets.token_urlsafe(32)
         csrf_token = secrets.token_urlsafe(32)
         self.sessions[token] = {
-            'username': username,
-            'created_at': datetime.utcnow(),
-            'last_activity': datetime.utcnow(),
-            'auth_method': auth_method,
-            'saml_session_index': saml_session_index,
-            'saml_name_id': saml_name_id,
-            'csrf_token': csrf_token
+            "username": username,
+            "created_at": datetime.utcnow(),
+            "last_activity": datetime.utcnow(),
+            "auth_method": auth_method,
+            "saml_session_index": saml_session_index,
+            "saml_name_id": saml_name_id,
+            "csrf_token": csrf_token,
         }
         LOG.info(f"Created admin session for user: {username} (auth: {auth_method})")
         return token
@@ -48,20 +53,20 @@ class SessionManager:
         now = datetime.utcnow()
 
         # Check absolute timeout (max session lifetime regardless of activity)
-        if now - session['created_at'] > self.absolute_timeout:
+        if now - session["created_at"] > self.absolute_timeout:
             LOG.info(f"Session absolute timeout for user: {session['username']}")
             self.destroy_session(token)
             return None
 
         # Check idle timeout
-        if now - session['last_activity'] > self.timeout:
+        if now - session["last_activity"] > self.timeout:
             LOG.info(f"Session idle timeout for user: {session['username']}")
             self.destroy_session(token)
             return None
 
         # Update last activity
-        session['last_activity'] = now
-        return session['username']
+        session["last_activity"] = now
+        return session["username"]
 
     def get_session(self, token: str) -> Optional[dict]:
         """Get full session data for a token"""
@@ -73,7 +78,7 @@ class SessionManager:
         """Get CSRF token for a session"""
         session = self.get_session(session_token)
         if session:
-            return session.get('csrf_token')
+            return session.get("csrf_token")
         return None
 
     def validate_csrf_token(self, session_token: str, csrf_token: str) -> bool:
@@ -83,12 +88,12 @@ class SessionManager:
         session = self.get_session(session_token)
         if not session:
             return False
-        return secrets.compare_digest(session.get('csrf_token', ''), csrf_token)
+        return secrets.compare_digest(session.get("csrf_token", ""), csrf_token)
 
     def destroy_session(self, token: str) -> bool:
         """Destroy a session"""
         if token in self.sessions:
-            username = self.sessions[token]['username']
+            username = self.sessions[token]["username"]
             del self.sessions[token]
             LOG.info(f"Destroyed admin session for user: {username}")
             return True
@@ -97,7 +102,7 @@ class SessionManager:
     def destroy_session_by_index(self, session_index: str) -> bool:
         """Destroy session by SAML session index (for IdP-initiated logout)"""
         for token, session in list(self.sessions.items()):
-            if session.get('saml_session_index') == session_index:
+            if session.get("saml_session_index") == session_index:
                 self.destroy_session(token)
                 return True
         return False
@@ -106,8 +111,9 @@ class SessionManager:
         """Remove all expired sessions"""
         now = datetime.utcnow()
         expired = [
-            token for token, session in self.sessions.items()
-            if now - session['last_activity'] > self.timeout
+            token
+            for token, session in self.sessions.items()
+            if now - session["last_activity"] > self.timeout
         ]
         for token in expired:
             self.destroy_session(token)

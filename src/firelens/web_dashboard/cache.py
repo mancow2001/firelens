@@ -2,6 +2,7 @@
 FireLens Monitor - Simple Cache Module
 TTL-based caching for reducing database queries
 """
+
 import time
 from typing import Any, Optional
 

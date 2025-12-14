@@ -4,7 +4,7 @@ Resource discovery for FireLens package data (templates, static files)
 This module provides functions to locate templates and static assets
 whether FireLens is installed via pip or running from source.
 """
-import sys
+
 from pathlib import Path
 from typing import Optional
 

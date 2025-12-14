@@ -8,7 +8,7 @@ for SSL/TLS verification when connecting to firewall APIs.
 import logging
 import os
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -22,7 +22,7 @@ LOG = logging.getLogger("firelens.cert_manager")
 
 # Constants
 MAX_FILE_SIZE = 1024 * 1024  # 1MB
-ALLOWED_EXTENSIONS = {'.pem', '.crt', '.der', '.cer'}
+ALLOWED_EXTENSIONS = {".pem", ".crt", ".der", ".cer"}
 CA_BUNDLE_FILENAME = "ca-bundle.pem"
 PEM_CERT_HEADER = b"-----BEGIN CERTIFICATE-----"
 PEM_CERT_FOOTER = b"-----END CERTIFICATE-----"
@@ -31,11 +31,12 @@ PEM_CERT_FOOTER = b"-----END CERTIFICATE-----"
 @dataclass
 class CertificateInfo:
     """Information about a parsed X.509 certificate"""
+
     id: str  # SHA256 fingerprint prefix (first 16 chars)
     subject: str
     issuer: str
     not_before: str  # ISO format datetime string
-    not_after: str   # ISO format datetime string
+    not_after: str  # ISO format datetime string
     fingerprint_sha256: str
     fingerprint_sha1: str
     serial_number: str
@@ -53,6 +54,7 @@ class CertificateInfo:
 @dataclass
 class AddCertificateResult:
     """Result of adding certificate(s)"""
+
     success: bool
     certs_added: int = 0
     certificates: List[CertificateInfo] = None
@@ -126,8 +128,7 @@ class CertificateManager:
         certs = []
         # Split on BEGIN CERTIFICATE markers
         pattern = re.compile(
-            rb'(-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----)',
-            re.DOTALL
+            rb"(-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----)", re.DOTALL
         )
         matches = pattern.findall(pem_data)
         for match in matches:
@@ -157,11 +158,11 @@ class CertificateManager:
         fingerprint_sha1 = cert.fingerprint(hashes.SHA1()).hex().upper()
 
         # Format fingerprints with colons for readability
-        fingerprint_sha256_formatted = ':'.join(
-            fingerprint_sha256[i:i+2] for i in range(0, len(fingerprint_sha256), 2)
+        fingerprint_sha256_formatted = ":".join(
+            fingerprint_sha256[i : i + 2] for i in range(0, len(fingerprint_sha256), 2)
         )
-        fingerprint_sha1_formatted = ':'.join(
-            fingerprint_sha1[i:i+2] for i in range(0, len(fingerprint_sha1), 2)
+        fingerprint_sha1_formatted = ":".join(
+            fingerprint_sha1[i : i + 2] for i in range(0, len(fingerprint_sha1), 2)
         )
 
         # Extract subject and issuer
@@ -185,7 +186,7 @@ class CertificateManager:
         days_until_expiry = max(0, (not_after - now).days) if not is_expired else 0
 
         # Create certificate ID from fingerprint prefix
-        cert_id = fingerprint_sha256.replace(':', '')[:16].lower()
+        cert_id = fingerprint_sha256.replace(":", "")[:16].lower()
 
         info = CertificateInfo(
             id=cert_id,
@@ -195,12 +196,12 @@ class CertificateManager:
             not_after=not_after.isoformat(),
             fingerprint_sha256=fingerprint_sha256_formatted,
             fingerprint_sha1=fingerprint_sha1_formatted,
-            serial_number=format(cert.serial_number, 'X'),
+            serial_number=format(cert.serial_number, "X"),
             filename="",  # Set later when saved
             file_path="",  # Set later when saved
             is_expired=is_expired,
             days_until_expiry=days_until_expiry,
-            is_ca=is_ca
+            is_ca=is_ca,
         )
 
         return cert, info
@@ -210,24 +211,24 @@ class CertificateManager:
         parts = []
         for attr in name:
             oid_name = attr.oid._name
-            if oid_name == 'commonName':
+            if oid_name == "commonName":
                 parts.insert(0, f"CN={attr.value}")
-            elif oid_name == 'organizationName':
+            elif oid_name == "organizationName":
                 parts.append(f"O={attr.value}")
-            elif oid_name == 'organizationalUnitName':
+            elif oid_name == "organizationalUnitName":
                 parts.append(f"OU={attr.value}")
-            elif oid_name == 'countryName':
+            elif oid_name == "countryName":
                 parts.append(f"C={attr.value}")
         return ", ".join(parts) if parts else str(name)
 
     def _sanitize_filename(self, name: str) -> str:
         """Create a safe filename from a certificate subject"""
         # Extract CN if present
-        cn_match = re.search(r'CN=([^,]+)', name)
+        cn_match = re.search(r"CN=([^,]+)", name)
         if cn_match:
             name = cn_match.group(1)
         # Remove/replace unsafe characters
-        safe = re.sub(r'[^\w\-.]', '_', name)
+        safe = re.sub(r"[^\w\-.]", "_", name)
         # Limit length
         return safe[:50] if len(safe) > 50 else safe
 
@@ -250,8 +251,7 @@ class CertificateManager:
         # Validate file size
         if len(data) > MAX_FILE_SIZE:
             return AddCertificateResult(
-                success=False,
-                error=f"File too large. Maximum size is {MAX_FILE_SIZE // 1024}KB"
+                success=False, error=f"File too large. Maximum size is {MAX_FILE_SIZE // 1024}KB"
             )
 
         # Validate file extension
@@ -259,24 +259,21 @@ class CertificateManager:
         if ext not in ALLOWED_EXTENSIONS:
             return AddCertificateResult(
                 success=False,
-                error=f"Invalid file type '{ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+                error=f"Invalid file type '{ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
             )
 
         # Convert DER to PEM if necessary
         if self._is_der_format(data):
             try:
                 data = self._convert_der_to_pem(data)
-                LOG.info(f"Converted DER certificate to PEM format")
+                LOG.info("Converted DER certificate to PEM format")
             except ValueError as e:
                 return AddCertificateResult(success=False, error=str(e))
 
         # Extract individual certificates (handles bundles)
         cert_data_list = self._extract_certs_from_bundle(data)
         if not cert_data_list:
-            return AddCertificateResult(
-                success=False,
-                error="No valid certificates found in file"
-            )
+            return AddCertificateResult(success=False, error="No valid certificates found in file")
 
         added_certs = []
         errors = []
@@ -314,22 +311,19 @@ class CertificateManager:
             self.regenerate_ca_bundle()
 
         if not added_certs and errors:
-            return AddCertificateResult(
-                success=False,
-                error="; ".join(errors)
-            )
+            return AddCertificateResult(success=False, error="; ".join(errors))
 
         return AddCertificateResult(
             success=True,
             certs_added=len(added_certs),
             certificates=added_certs,
-            error="; ".join(errors) if errors else None
+            error="; ".join(errors) if errors else None,
         )
 
     def _find_cert_by_fingerprint(self, fingerprint: str) -> Optional[Path]:
         """Find a certificate file by its fingerprint"""
         # Normalize fingerprint (remove colons, lowercase)
-        normalized = fingerprint.replace(':', '').lower()[:16]
+        normalized = fingerprint.replace(":", "").lower()[:16]
 
         for cert_file in self.certs_dir.glob("*.pem"):
             if cert_file.name == CA_BUNDLE_FILENAME:
@@ -367,7 +361,7 @@ class CertificateManager:
             # Regenerate CA bundle
             self.regenerate_ca_bundle()
 
-            return True, f"Certificate deleted successfully"
+            return True, "Certificate deleted successfully"
         except Exception as e:
             LOG.error(f"Failed to delete certificate {cert_id}: {e}")
             return False, f"Failed to delete certificate: {e}"
@@ -506,5 +500,5 @@ class CertificateManager:
             "valid": valid,
             "expiring_soon": expiring_soon,
             "expired": expired,
-            "ca_bundle_path": self.get_ca_bundle_path()
+            "ca_bundle_path": self.get_ca_bundle_path(),
         }

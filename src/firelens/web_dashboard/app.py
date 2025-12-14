@@ -3,6 +3,7 @@
 FireLens Monitor - Web Dashboard Module
 Provides web interface for monitoring firewall metrics, interface bandwidth, and session statistics
 """
+
 import asyncio
 import logging
 import threading
@@ -10,10 +11,11 @@ from pathlib import Path
 from typing import Optional
 
 try:
+    import uvicorn
     from fastapi import FastAPI
     from fastapi.staticfiles import StaticFiles
     from fastapi.templating import Jinja2Templates
-    import uvicorn
+
     FASTAPI_OK = True
 except ImportError:
     FASTAPI_OK = False
@@ -21,26 +23,27 @@ except ImportError:
 # Rate limiting support
 try:
     from slowapi import Limiter, _rate_limit_exceeded_handler
-    from slowapi.util import get_remote_address
     from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
+
     SLOWAPI_OK = True
 except ImportError:
     SLOWAPI_OK = False
 
 # Import from extracted modules
 from .cache import SimpleCache
-from .session import SessionManager
 from .middleware import setup_middleware
 
 # Import route modules
 from .routes import (
-    dashboard_router,
-    auth_router,
-    saml_router,
     admin_router,
+    auth_router,
     certificates_router,
+    dashboard_router,
+    saml_router,
     ssl_router,
 )
+from .session import SessionManager
 
 LOG = logging.getLogger("FireLens.web")
 
@@ -50,7 +53,9 @@ class EnhancedWebDashboard:
 
     def __init__(self, database, config_manager, collector_manager=None):
         if not FASTAPI_OK:
-            raise RuntimeError("FastAPI not available - install with: pip install fastapi uvicorn jinja2")
+            raise RuntimeError(
+                "FastAPI not available - install with: pip install fastapi uvicorn jinja2"
+            )
 
         self.database = database
         self.config_manager = config_manager
@@ -78,7 +83,7 @@ class EnhancedWebDashboard:
 
         # Initialize admin session manager
         admin_timeout = 60  # Default timeout
-        if hasattr(config_manager.global_config, 'admin') and config_manager.global_config.admin:
+        if hasattr(config_manager.global_config, "admin") and config_manager.global_config.admin:
             admin_timeout = config_manager.global_config.admin.session_timeout_minutes
         self.session_manager = SessionManager(timeout_minutes=admin_timeout)
         LOG.info(f"Admin session manager initialized with {admin_timeout}min timeout")
@@ -87,9 +92,12 @@ class EnhancedWebDashboard:
         self.saml_handler = None
         try:
             from ..saml_auth import SAMLAuthHandler
-            if (hasattr(config_manager.global_config, 'admin') and
-                config_manager.global_config.admin and
-                config_manager.global_config.admin.saml):
+
+            if (
+                hasattr(config_manager.global_config, "admin")
+                and config_manager.global_config.admin
+                and config_manager.global_config.admin.saml
+            ):
                 self.saml_handler = SAMLAuthHandler(config_manager.global_config.admin.saml)
                 if self.saml_handler.is_available():
                     LOG.info("SAML authentication handler initialized")
@@ -182,7 +190,7 @@ class EnhancedWebDashboard:
         host: str = "0.0.0.0",
         port: int = 8080,
         ssl_certfile: Optional[str] = None,
-        ssl_keyfile: Optional[str] = None
+        ssl_keyfile: Optional[str] = None,
     ):
         """Start the enhanced web server in a thread with optional SSL support"""
         if self.server_thread and self.server_thread.is_alive():
@@ -205,7 +213,7 @@ class EnhancedWebDashboard:
                     access_log=False,
                     loop=loop,
                     ssl_certfile=ssl_certfile,
-                    ssl_keyfile=ssl_keyfile
+                    ssl_keyfile=ssl_keyfile,
                 )
 
                 server = uvicorn.Server(config)
@@ -221,14 +229,12 @@ class EnhancedWebDashboard:
                 # Clean up
                 try:
                     loop.close()
-                except:
+                except Exception:
                     pass
 
         # Start server thread
         self.server_thread = threading.Thread(
-            target=run_server,
-            name="enhanced-web-server",
-            daemon=True
+            target=run_server, name="enhanced-web-server", daemon=True
         )
         self.server_thread.start()
 
@@ -242,10 +248,7 @@ class EnhancedWebDashboard:
             LOG.info("Stopping enhanced web server...")
 
     def start_http_redirect_server(
-        self,
-        http_port: int = 8080,
-        https_port: int = 8443,
-        host: str = "0.0.0.0"
+        self, http_port: int = 8080, https_port: int = 8443, host: str = "0.0.0.0"
     ):
         """
         Start a lightweight HTTP server that redirects all requests to HTTPS.
@@ -257,7 +260,9 @@ class EnhancedWebDashboard:
 
         redirect_app = FastAPI(title="HTTP to HTTPS Redirect")
 
-        @redirect_app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+        @redirect_app.api_route(
+            "/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
+        )
         async def redirect_to_https(request: Request, path: str = ""):
             """Redirect all HTTP requests to HTTPS"""
             # Build the HTTPS URL
@@ -287,11 +292,13 @@ class EnhancedWebDashboard:
                     port=http_port,
                     log_level="warning",
                     access_log=False,
-                    loop=loop
+                    loop=loop,
                 )
 
                 server = uvicorn.Server(config)
-                LOG.info(f"Starting HTTP redirect server on http://{host}:{http_port} -> https://...:{https_port}")
+                LOG.info(
+                    f"Starting HTTP redirect server on http://{host}:{http_port} -> https://...:{https_port}"
+                )
                 loop.run_until_complete(server.serve())
 
             except Exception as e:
@@ -299,22 +306,23 @@ class EnhancedWebDashboard:
             finally:
                 try:
                     loop.close()
-                except:
+                except Exception:
                     pass
 
         # Start redirect server thread
         redirect_thread = threading.Thread(
-            target=run_redirect_server,
-            name="http-redirect-server",
-            daemon=True
+            target=run_redirect_server, name="http-redirect-server", daemon=True
         )
         redirect_thread.start()
 
-        LOG.info(f"HTTP redirect server started: http://{host}:{http_port} -> https://...:{https_port}")
+        LOG.info(
+            f"HTTP redirect server started: http://{host}:{http_port} -> https://...:{https_port}"
+        )
         return redirect_thread
 
 
 # Maintain backward compatibility
 class WebDashboard(EnhancedWebDashboard):
     """Backward compatibility alias for the enhanced web dashboard"""
+
     pass

@@ -14,19 +14,20 @@ Architecture Notes:
 - This implementation targets FDM REST API for direct device access
 - FMC provides centralized management but adds complexity
 """
+
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 
+from . import register_vendor
 from .base import (
-    VendorAdapter,
-    VendorClient,
+    HardwareInfo,
     InterfaceSample,
     SessionStats,
-    HardwareInfo,
     SystemMetrics,
+    VendorAdapter,
+    VendorClient,
 )
-from . import register_vendor
 
 LOG = logging.getLogger("FireLens.vendors.cisco_firepower")
 
@@ -163,8 +164,8 @@ class CiscoFirepowerClient(VendorClient):
         - Create requests.Session for connection reuse
         - Implement token refresh timer
         """
-        self._host = host.rstrip('/')
-        if not self._host.startswith('http'):
+        self._host = host.rstrip("/")
+        if not self._host.startswith("http"):
             self._host = f"https://{self._host}"
         self._base_url = f"{self._host}/api/fdm/v6"
         self._verify_ssl = verify_ssl
@@ -286,7 +287,9 @@ class CiscoFirepowerClient(VendorClient):
             "Option 2: POST /api/fdm/v6/action/clicommand with 'show cpu usage'."
         )
 
-    def collect_interface_stats(self, interfaces: Optional[List[str]] = None) -> Dict[str, InterfaceSample]:
+    def collect_interface_stats(
+        self, interfaces: Optional[List[str]] = None
+    ) -> Dict[str, InterfaceSample]:
         """
         Collect interface statistics from Firepower.
 
@@ -451,7 +454,9 @@ class CiscoFirepowerAdapter(VendorAdapter):
     def vendor_type(self) -> str:
         return self.VENDOR_TYPE
 
-    def create_client(self, host: str, verify_ssl: bool = True, ca_bundle_path: Optional[str] = None) -> CiscoFirepowerClient:
+    def create_client(
+        self, host: str, verify_ssl: bool = True, ca_bundle_path: Optional[str] = None
+    ) -> CiscoFirepowerClient:
         """
         Create a new Firepower API client.
 
@@ -477,15 +482,15 @@ class CiscoFirepowerAdapter(VendorAdapter):
             List of metric names
         """
         return [
-            'cpu_usage',
-            'cpu_5sec',
-            'cpu_1min',
-            'cpu_5min',
-            'memory_usage',
-            'disk_usage',
-            'active_connections',
-            'max_connections',
-            'xlate_count',  # NAT translation count
+            "cpu_usage",
+            "cpu_5sec",
+            "cpu_1min",
+            "cpu_5min",
+            "memory_usage",
+            "disk_usage",
+            "active_connections",
+            "max_connections",
+            "xlate_count",  # NAT translation count
         ]
 
     def get_hardware_fields(self) -> List[str]:
@@ -496,11 +501,11 @@ class CiscoFirepowerAdapter(VendorAdapter):
             List of field names
         """
         return [
-            'model',
-            'serial',
-            'hostname',
-            'sw_version',
-            'device_type',
+            "model",
+            "serial",
+            "hostname",
+            "sw_version",
+            "device_type",
         ]
 
     def get_default_exclude_interfaces(self) -> List[str]:
@@ -517,12 +522,12 @@ class CiscoFirepowerAdapter(VendorAdapter):
             List of patterns to exclude
         """
         return [
-            'Management',
-            'Diagnostic',
-            'nlp_int_tap',  # Internal TAP interface
-            'ccl_ha_port',  # Cluster control link
-            'cmi_mgmt_int',  # CMI management
-            'Internal-',    # Internal interfaces
+            "Management",
+            "Diagnostic",
+            "nlp_int_tap",  # Internal TAP interface
+            "ccl_ha_port",  # Cluster control link
+            "cmi_mgmt_int",  # CMI management
+            "Internal-",  # Internal interfaces
         ]
 
 

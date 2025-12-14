@@ -2,7 +2,9 @@
 FireLens Monitor - Middleware Module
 HTTP middleware for caching, security headers, and other request/response processing
 """
+
 import logging
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 

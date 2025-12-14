@@ -3,16 +3,17 @@
 FireLens Monitor - Vendor Module
 Multi-vendor firewall support with pluggable adapters
 """
+
 import logging
-from typing import Dict, Type, Optional
+from typing import Dict, Type
 
 from .base import (
-    VendorAdapter,
-    VendorClient,
+    HardwareInfo,
     InterfaceSample,
     SessionStats,
-    HardwareInfo,
     SystemMetrics,
+    VendorAdapter,
+    VendorClient,
 )
 
 LOG = logging.getLogger("FireLens.vendors")
@@ -21,7 +22,7 @@ LOG = logging.getLogger("FireLens.vendors")
 _VENDOR_REGISTRY: Dict[str, Type[VendorAdapter]] = {}
 
 # Supported vendor types
-SUPPORTED_VENDORS = ['palo_alto', 'fortinet', 'cisco_firepower']
+SUPPORTED_VENDORS = ["palo_alto", "fortinet", "cisco_firepower"]
 
 
 def register_vendor(vendor_type: str, adapter_class: Type[VendorAdapter]) -> None:
@@ -53,10 +54,7 @@ def get_vendor_adapter(vendor_type: str) -> VendorAdapter:
     """
     if vendor_type not in _VENDOR_REGISTRY:
         available = list(_VENDOR_REGISTRY.keys())
-        raise ValueError(
-            f"Unknown vendor type: '{vendor_type}'. "
-            f"Available vendors: {available}"
-        )
+        raise ValueError(f"Unknown vendor type: '{vendor_type}'. Available vendors: {available}")
     return _VENDOR_REGISTRY[vendor_type]()
 
 
@@ -89,17 +87,17 @@ def is_vendor_supported(vendor_type: str) -> bool:
 # Import vendor implementations to trigger registration
 # Each vendor module registers itself when imported
 try:
-    from . import palo_alto
+    from . import palo_alto  # noqa: F401
 except ImportError as e:
     LOG.warning(f"Failed to load Palo Alto vendor module: {e}")
 
 try:
-    from . import fortinet
+    from . import fortinet  # noqa: F401
 except ImportError as e:
     LOG.debug(f"Fortinet vendor module not available: {e}")
 
 try:
-    from . import cisco_firepower
+    from . import cisco_firepower  # noqa: F401
 except ImportError as e:
     LOG.debug(f"Cisco Firepower vendor module not available: {e}")
 
@@ -107,16 +105,16 @@ except ImportError as e:
 # Public API
 __all__ = [
     # Base classes
-    'VendorAdapter',
-    'VendorClient',
-    'InterfaceSample',
-    'SessionStats',
-    'HardwareInfo',
-    'SystemMetrics',
+    "VendorAdapter",
+    "VendorClient",
+    "InterfaceSample",
+    "SessionStats",
+    "HardwareInfo",
+    "SystemMetrics",
     # Registry functions
-    'register_vendor',
-    'get_vendor_adapter',
-    'get_available_vendors',
-    'is_vendor_supported',
-    'SUPPORTED_VENDORS',
+    "register_vendor",
+    "get_vendor_adapter",
+    "get_available_vendors",
+    "is_vendor_supported",
+    "SUPPORTED_VENDORS",
 ]

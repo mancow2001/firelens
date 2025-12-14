@@ -2,6 +2,7 @@
 FireLens Monitor - Shared Helper Functions
 Authentication, validation, and utility functions used across routes
 """
+
 from typing import Optional, Tuple
 
 from fastapi import Request
@@ -41,7 +42,10 @@ def validate_password_complexity(password: str) -> Tuple[bool, str]:
 
     special_chars = set("!@#$%^&*()_+-=[]{}|;':\",./<>?`~")
     if not any(c in special_chars for c in password):
-        return False, "Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;':\",./<>?`~)"
+        return (
+            False,
+            "Password must contain at least one special character (!@#$%^&*()_+-=[]{})",
+        )
 
     return True, ""
 
@@ -76,10 +80,10 @@ def validate_csrf(request: Request, csrf_token: Optional[str]) -> bool:
 def is_admin_enabled(request: Request) -> bool:
     """Check if admin interface is enabled"""
     config = request.app.state.config_manager.global_config
-    admin_config = getattr(config, 'admin', None)
+    admin_config = getattr(config, "admin", None)
     if admin_config is None:
         return True  # Default to enabled if not configured
-    return getattr(admin_config, 'enabled', True)
+    return getattr(admin_config, "enabled", True)
 
 
 def is_saml_available(request: Request) -> bool:
@@ -88,7 +92,7 @@ def is_saml_available(request: Request) -> bool:
     if saml_handler is None:
         return False
     config = request.app.state.config_manager.global_config
-    saml_config = getattr(config, 'saml', None)
+    saml_config = getattr(config, "saml", None)
     if saml_config is None:
         return False
-    return getattr(saml_config, 'enabled', False)
+    return getattr(saml_config, "enabled", False)

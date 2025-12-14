@@ -3,15 +3,17 @@
 FireLens Monitor - Vendor Abstraction Layer
 Abstract base classes for multi-vendor firewall support
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class InterfaceSample:
     """Raw interface counters at one point in time - vendor agnostic"""
+
     timestamp: datetime
     interface_name: str
     rx_bytes: int
@@ -27,6 +29,7 @@ class InterfaceSample:
 @dataclass
 class SessionStats:
     """Session statistics - vendor agnostic"""
+
     timestamp: datetime
     active_sessions: int
     max_sessions: int
@@ -39,6 +42,7 @@ class SessionStats:
 @dataclass
 class HardwareInfo:
     """Hardware information - vendor agnostic with optional vendor-specific fields"""
+
     vendor: str
     model: str
     serial: str
@@ -55,6 +59,7 @@ class HardwareInfo:
 @dataclass
 class SystemMetrics:
     """System metrics - vendor agnostic"""
+
     timestamp: datetime
     cpu_usage: float  # Overall CPU percentage
     memory_usage: Optional[float] = None  # Memory percentage if available
@@ -119,7 +124,9 @@ class VendorClient(ABC):
         pass
 
     @abstractmethod
-    def collect_interface_stats(self, interfaces: Optional[List[str]] = None) -> Dict[str, InterfaceSample]:
+    def collect_interface_stats(
+        self, interfaces: Optional[List[str]] = None
+    ) -> Dict[str, InterfaceSample]:
         """
         Collect interface statistics.
 
@@ -196,7 +203,9 @@ class VendorAdapter(ABC):
         pass
 
     @abstractmethod
-    def create_client(self, host: str, verify_ssl: bool = True, ca_bundle_path: Optional[str] = None) -> VendorClient:
+    def create_client(
+        self, host: str, verify_ssl: bool = True, ca_bundle_path: Optional[str] = None
+    ) -> VendorClient:
         """
         Create a new API client for this vendor.
 
@@ -239,7 +248,7 @@ class VendorAdapter(ABC):
         Returns:
             List of interface name patterns to exclude
         """
-        return ['mgmt', 'management', 'loopback', 'lo']
+        return ["mgmt", "management", "loopback", "lo"]
 
 
 # Type alias for vendor registry

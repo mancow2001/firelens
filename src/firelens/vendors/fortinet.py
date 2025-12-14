@@ -6,20 +6,22 @@ REST API client for FortiGate firewalls using API token authentication.
 API Documentation: https://docs.fortinet.com/document/fortigate/7.4.0/administration-guide/
 REST API Guide: https://fndn.fortinet.net/ (requires FNDN account)
 """
-import logging
-import requests
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
 
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+import requests
+
+from . import register_vendor
 from .base import (
-    VendorAdapter,
-    VendorClient,
+    HardwareInfo,
     InterfaceSample,
     SessionStats,
-    HardwareInfo,
     SystemMetrics,
+    VendorAdapter,
+    VendorClient,
 )
-from . import register_vendor
 
 LOG = logging.getLogger("FireLens.vendors.fortinet")
 
@@ -55,8 +57,8 @@ class FortinetClient(VendorClient):
             verify_ssl: Verify SSL certificates (False for self-signed)
             ca_bundle_path: Optional path to custom CA bundle for SSL verification
         """
-        self._host = host.rstrip('/')
-        if not self._host.startswith('http'):
+        self._host = host.rstrip("/")
+        if not self._host.startswith("http"):
             self._host = f"https://{self._host}"
         self._base_url = f"{self._host}/api/v2"
         self._verify_ssl = verify_ssl
@@ -67,7 +69,9 @@ class FortinetClient(VendorClient):
         self._hardware_info: Optional[HardwareInfo] = None
         self._vdom = "root"  # Default VDOM
 
-        LOG.info(f"FortiGate client initialized for {self._host} with verify_ssl={self._verify_ssl}")
+        LOG.info(
+            f"FortiGate client initialized for {self._host} with verify_ssl={self._verify_ssl}"
+        )
 
     @property
     def vendor_name(self) -> str:
@@ -107,7 +111,7 @@ class FortinetClient(VendorClient):
 
         if params is None:
             params = {}
-        params['vdom'] = self._vdom
+        params["vdom"] = self._vdom
 
         url = f"{self._base_url}{endpoint}"
 
@@ -143,11 +147,13 @@ class FortinetClient(VendorClient):
         try:
             self._api_token = password
             self._session = requests.Session()
-            self._session.headers.update({
-                "Authorization": f"Bearer {self._api_token}",
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            })
+            self._session.headers.update(
+                {
+                    "Authorization": f"Bearer {self._api_token}",
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                }
+            )
 
             # Test authentication by fetching system status
             data = self._get("/monitor/system/status")
@@ -177,11 +183,13 @@ class FortinetClient(VendorClient):
                 vendor_specific={
                     "build": build,
                     "vdom": self._vdom,
-                }
+                },
             )
 
             self._authenticated = True
-            LOG.info(f"Authenticated to FortiGate {self._hardware_info.hostname} ({self._hardware_info.model})")
+            host = self._hardware_info.hostname
+            model = self._hardware_info.model
+            LOG.info(f"Authenticated to FortiGate {host} ({model})")
             return True
 
         except requests.HTTPError as e:
@@ -235,7 +243,11 @@ class FortinetClient(VendorClient):
 
             # Parse NPU sessions (hardware-accelerated sessions)
             npu_session_data = results.get("npu_session", [])
-            if npu_session_data and isinstance(npu_session_data, list) and len(npu_session_data) > 0:
+            if (
+                npu_session_data
+                and isinstance(npu_session_data, list)
+                and len(npu_session_data) > 0
+            ):
                 vendor_metrics["npu_sessions"] = int(npu_session_data[0].get("current", 0))
             else:
                 vendor_metrics["npu_sessions"] = 0
@@ -279,15 +291,17 @@ class FortinetClient(VendorClient):
                         memory_usage = (used / total) * 100
                         vendor_metrics["memory_usage_percent"] = memory_usage
 
-            LOG.debug(f"FortiGate metrics: CPU={cpu_usage}%, Memory={memory_usage}%, "
-                     f"SetupRate={vendor_metrics.get('session_setup_rate', 0)}/s, "
-                     f"NPU={vendor_metrics.get('npu_sessions', 0)}")
+            LOG.debug(
+                f"FortiGate metrics: CPU={cpu_usage}%, Memory={memory_usage}%, "
+                f"SetupRate={vendor_metrics.get('session_setup_rate', 0)}/s, "
+                f"NPU={vendor_metrics.get('npu_sessions', 0)}"
+            )
 
             return SystemMetrics(
                 timestamp=timestamp,
                 cpu_usage=cpu_usage,
                 memory_usage=memory_usage,
-                vendor_metrics=vendor_metrics
+                vendor_metrics=vendor_metrics,
             )
 
         except Exception as e:
@@ -296,10 +310,12 @@ class FortinetClient(VendorClient):
                 timestamp=timestamp,
                 cpu_usage=0.0,
                 memory_usage=None,
-                vendor_metrics={"error": str(e)}
+                vendor_metrics={"error": str(e)},
             )
 
-    def collect_interface_stats(self, interfaces: Optional[List[str]] = None) -> Dict[str, InterfaceSample]:
+    def collect_interface_stats(
+        self, interfaces: Optional[List[str]] = None
+    ) -> Dict[str, InterfaceSample]:
         """
         Collect interface statistics from FortiGate.
 
@@ -344,7 +360,7 @@ class FortinetClient(VendorClient):
                     tx_packets=int(iface.get("tx_packets", 0)),
                     rx_errors=int(iface.get("rx_errors", 0)),
                     tx_errors=int(iface.get("tx_errors", 0)),
-                    success=True
+                    success=True,
                 )
 
             LOG.debug(f"Collected stats for {len(result)} FortiGate interfaces")
@@ -395,16 +411,12 @@ class FortinetClient(VendorClient):
                 tcp_sessions=0,  # Not directly available without parsing full session table
                 udp_sessions=0,
                 icmp_sessions=0,
-                session_rate=0.0
+                session_rate=0.0,
             )
 
         except Exception as e:
             LOG.error(f"Failed to collect FortiGate session stats: {e}")
-            return SessionStats(
-                timestamp=timestamp,
-                active_sessions=0,
-                max_sessions=0
-            )
+            return SessionStats(timestamp=timestamp, active_sessions=0, max_sessions=0)
 
     def get_hardware_info(self) -> HardwareInfo:
         """
@@ -442,18 +454,14 @@ class FortinetClient(VendorClient):
                 vendor_specific={
                     "build": build,
                     "vdom": self._vdom,
-                }
+                },
             )
             return self._hardware_info
 
         except Exception as e:
             LOG.error(f"Failed to get FortiGate hardware info: {e}")
             return HardwareInfo(
-                vendor=self.VENDOR_NAME,
-                model="Unknown",
-                serial="",
-                hostname="",
-                sw_version=""
+                vendor=self.VENDOR_NAME, model="Unknown", serial="", hostname="", sw_version=""
             )
 
     def discover_interfaces(self) -> List[str]:
@@ -521,7 +529,9 @@ class FortinetAdapter(VendorAdapter):
     def vendor_type(self) -> str:
         return self.VENDOR_TYPE
 
-    def create_client(self, host: str, verify_ssl: bool = True, ca_bundle_path: Optional[str] = None) -> FortinetClient:
+    def create_client(
+        self, host: str, verify_ssl: bool = True, ca_bundle_path: Optional[str] = None
+    ) -> FortinetClient:
         """
         Create a new FortiGate API client.
 
@@ -546,12 +556,12 @@ class FortinetAdapter(VendorAdapter):
             List of metric names
         """
         return [
-            'cpu_usage',
-            'memory_usage',
-            'disk_usage',
-            'active_sessions',
-            'max_sessions',
-            'session_rate',
+            "cpu_usage",
+            "memory_usage",
+            "disk_usage",
+            "active_sessions",
+            "max_sessions",
+            "session_rate",
         ]
 
     def get_hardware_fields(self) -> List[str]:
@@ -562,11 +572,11 @@ class FortinetAdapter(VendorAdapter):
             List of field names
         """
         return [
-            'model',
-            'serial',
-            'hostname',
-            'sw_version',
-            'build',
+            "model",
+            "serial",
+            "hostname",
+            "sw_version",
+            "build",
         ]
 
     def get_default_exclude_interfaces(self) -> List[str]:
@@ -584,14 +594,14 @@ class FortinetAdapter(VendorAdapter):
             List of patterns to exclude
         """
         return [
-            'mgmt',
-            'fortilink',
-            'ha1',
-            'ha2',
-            'hasync',
-            'ssl.root',  # SSL VPN interface
-            'npu0_vlink',  # NPU internal links
-            'root',  # Root VDOM interface
+            "mgmt",
+            "fortilink",
+            "ha1",
+            "ha2",
+            "hasync",
+            "ssl.root",  # SSL VPN interface
+            "npu0_vlink",  # NPU internal links
+            "root",  # Root VDOM interface
         ]
 
 

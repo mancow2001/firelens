@@ -729,26 +729,25 @@ class TestCiscoFirepowerAdapter(unittest.TestCase):
         self.assertIn("memory_usage", metrics)
         self.assertIn("active_connections", metrics)
 
-    def test_client_raises_not_implemented(self):
-        """Test Cisco Firepower client methods raise NotImplementedError"""
-        from firelens.vendors.cisco_firepower import CiscoFirepowerClient
+    def test_fdm_client_initialization(self):
+        """Test Cisco Firepower FDM client initialization"""
+        from firelens.vendors.cisco_firepower import CiscoFirepowerFDMClient
 
-        client = CiscoFirepowerClient("https://192.168.1.1", verify_ssl=False)
+        client = CiscoFirepowerFDMClient("https://192.168.1.1", verify_ssl=False)
 
-        with self.assertRaises(NotImplementedError):
-            client.authenticate("admin", "password")
+        self.assertEqual(client.vendor_type, "cisco_firepower")
+        self.assertEqual(client.vendor_name, "Cisco Firepower (FDM)")
+        self.assertFalse(client.is_authenticated())
 
-        with self.assertRaises(NotImplementedError):
-            client.collect_system_metrics()
+    def test_fmc_client_initialization(self):
+        """Test Cisco Firepower FMC client initialization"""
+        from firelens.vendors.cisco_firepower import CiscoFirepowerFMCClient
 
-        with self.assertRaises(NotImplementedError):
-            client.collect_interface_stats()
+        client = CiscoFirepowerFMCClient("https://fmc.example.com", verify_ssl=False)
 
-        with self.assertRaises(NotImplementedError):
-            client.collect_session_stats()
-
-        with self.assertRaises(NotImplementedError):
-            client.discover_interfaces()
+        self.assertEqual(client.vendor_type, "cisco_firepower")
+        self.assertEqual(client.vendor_name, "Cisco Firepower (FMC)")
+        self.assertFalse(client.is_authenticated())
 
     def test_default_exclude_interfaces(self):
         """Test Cisco Firepower default interface exclusions"""

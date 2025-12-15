@@ -1,6 +1,5 @@
-version: 2
+  version: 2
   updates:
-    # Python dependencies (pip)
     - package-ecosystem: "pip"
       directory: "/"
       schedule:
@@ -15,7 +14,6 @@ version: 2
       commit-message:
         prefix: "chore(deps)"
       groups:
-        # Group minor/patch updates to reduce PR noise
         python-minor:
           patterns:
             - "*"
@@ -23,7 +21,6 @@ version: 2
             - "minor"
             - "patch"
 
-    # GitHub Actions
     - package-ecosystem: "github-actions"
       directory: "/"
       schedule:
@@ -38,7 +35,6 @@ version: 2
       commit-message:
         prefix: "chore(ci)"
 
-    # Docker
     - package-ecosystem: "docker"
       directory: "/docker"
       schedule:

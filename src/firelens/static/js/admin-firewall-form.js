@@ -11,6 +11,9 @@ let csrfToken = '';
 let interfaceConfigs = [];
 let vendorType = 'palo_alto';
 let vdom = 'root';
+let managementMode = 'fdm';
+let deviceId = '';
+let deviceName = '';
 
 // Duplicate name check state
 let nameCheckTimeout = null;
@@ -33,6 +36,9 @@ document.addEventListener('DOMContentLoaded', function() {
         interfaceConfigs = window.firewallFormConfig.interfaceConfigs || [];
         vendorType = window.firewallFormConfig.vendorType || 'palo_alto';
         vdom = window.firewallFormConfig.vdom || 'root';
+        managementMode = window.firewallFormConfig.managementMode || 'fdm';
+        deviceId = window.firewallFormConfig.deviceId || '';
+        deviceName = window.firewallFormConfig.deviceName || '';
     }
 
     // Initialize interface configuration visibility
@@ -269,6 +275,7 @@ function onVendorTypeChange() {
     const passwordHelp = document.getElementById('passwordHelp');
     const vdomGroup = document.getElementById('vdomGroup');
     const dpAggregationGroup = document.getElementById('dpAggregationGroup');
+    const ciscoFirepowerGroup = document.getElementById('ciscoFirepowerGroup');
 
     // Reset to defaults first (show username, require it)
     if (usernameGroup) usernameGroup.style.display = 'block';
@@ -277,6 +284,7 @@ function onVendorTypeChange() {
     if (passwordHelp) passwordHelp.textContent = '';
     if (vdomGroup) vdomGroup.style.display = 'none';
     if (dpAggregationGroup) dpAggregationGroup.style.display = 'block';
+    if (ciscoFirepowerGroup) ciscoFirepowerGroup.style.display = 'none';
 
     // Apply vendor-specific settings
     if (selectedType === 'fortinet') {
@@ -291,10 +299,181 @@ function onVendorTypeChange() {
         if (vdomGroup) vdomGroup.style.display = 'block';
         if (dpAggregationGroup) dpAggregationGroup.style.display = 'none';
     } else if (selectedType === 'cisco_firepower') {
-        // Cisco Firepower: Hide DP aggregation (not applicable)
+        // Cisco Firepower: Show management mode, hide DP aggregation
+        if (ciscoFirepowerGroup) ciscoFirepowerGroup.style.display = 'block';
         if (dpAggregationGroup) dpAggregationGroup.style.display = 'none';
+        // Initialize management mode visibility and labels
+        onManagementModeChange();
+        // Show selected device if editing with device_id
+        if (deviceId && deviceName) {
+            showSelectedDevice(deviceId, deviceName);
+        }
     }
     // Palo Alto uses all defaults
+}
+
+/**
+ * Handle management mode change for Cisco Firepower
+ */
+function onManagementModeChange() {
+    const modeSelect = document.getElementById('management_mode');
+    const selectedMode = modeSelect ? modeSelect.value : managementMode;
+    managementMode = selectedMode;
+
+    const fmcDeviceSection = document.getElementById('fmcDeviceSection');
+    const usernameLabel = document.querySelector('label[for="username"]');
+    const passwordLabel = document.getElementById('passwordLabel');
+    const usernameHelp = document.getElementById('usernameHelp');
+    const passwordHelp = document.getElementById('passwordHelp');
+    const hostInput = document.getElementById('host');
+    const hostHelp = hostInput ? hostInput.parentElement.querySelector('small') : null;
+
+    if (selectedMode === 'fmc') {
+        // FMC mode: Connect to Firepower Management Center
+        if (fmcDeviceSection) fmcDeviceSection.style.display = 'block';
+        if (usernameLabel) usernameLabel.innerHTML = 'API Username <span class="required">*</span>';
+        if (passwordLabel) passwordLabel.innerHTML = 'API Password <span class="required">*</span>';
+        if (usernameHelp) usernameHelp.textContent = 'Firepower Management Center API username';
+        if (passwordHelp) passwordHelp.textContent = 'Firepower Management Center API password';
+        if (hostHelp) hostHelp.textContent = 'FMC URL (e.g., https://fmc.example.com)';
+    } else {
+        // FDM mode: Connect directly to FTD device
+        if (fmcDeviceSection) fmcDeviceSection.style.display = 'none';
+        if (usernameLabel) usernameLabel.innerHTML = 'FTD Username <span class="required">*</span>';
+        if (passwordLabel) passwordLabel.innerHTML = 'FTD Password <span class="required">*</span>';
+        if (usernameHelp) usernameHelp.textContent = 'FTD device admin username';
+        if (passwordHelp) passwordHelp.textContent = 'FTD device admin password';
+        if (hostHelp) hostHelp.textContent = 'FTD device URL (e.g., https://192.168.1.1)';
+        // Clear device selection when switching to FDM
+        deviceId = '';
+        deviceName = '';
+        const deviceIdInput = document.getElementById('device_id');
+        const deviceNameInput = document.getElementById('device_name');
+        if (deviceIdInput) deviceIdInput.value = '';
+        if (deviceNameInput) deviceNameInput.value = '';
+    }
+}
+
+/**
+ * Discover FMC managed devices
+ */
+function discoverFMCDevices() {
+    const host = document.getElementById('host').value;
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const verify_ssl = document.getElementById('verify_ssl').checked;
+
+    if (!host || !username || !password) {
+        showToast('Please fill in Host, Username, and Password first', 'error');
+        return;
+    }
+
+    // Show loading state
+    const btn = document.querySelector('#fmcDeviceSection .btn-discover');
+    const btnText = document.getElementById('discoverFMCBtnText');
+    const spinner = document.getElementById('discoverFMCSpinner');
+    const resultDiv = document.getElementById('fmcDiscoverResult');
+
+    btn.disabled = true;
+    btnText.textContent = 'Discovering...';
+    spinner.style.display = 'inline-block';
+    resultDiv.className = 'discover-result';
+    resultDiv.innerHTML = '';
+
+    fetch('/admin/api/discover-fmc-devices', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+            host: host,
+            username: username,
+            password: password,
+            verify_ssl: verify_ssl,
+            csrf_token: csrfToken
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btnText.textContent = 'Discover Devices';
+        spinner.style.display = 'none';
+
+        if (data.success) {
+            resultDiv.className = 'discover-result success show';
+            resultDiv.innerHTML = data.message;
+
+            if (data.devices && data.devices.length > 0) {
+                renderFMCDeviceTable(data.devices);
+            } else {
+                document.getElementById('fmcDeviceList').style.display = 'none';
+            }
+        } else {
+            resultDiv.className = 'discover-result error show';
+            resultDiv.innerHTML = data.message;
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btnText.textContent = 'Discover Devices';
+        spinner.style.display = 'none';
+
+        resultDiv.className = 'discover-result error show';
+        resultDiv.innerHTML = 'Error: ' + error.message;
+    });
+}
+
+/**
+ * Render FMC device selection table
+ */
+function renderFMCDeviceTable(devices) {
+    const tbody = document.getElementById('fmcDeviceTableBody');
+    const deviceList = document.getElementById('fmcDeviceList');
+
+    tbody.innerHTML = '';
+    deviceList.style.display = 'block';
+
+    devices.forEach(device => {
+        const row = document.createElement('tr');
+        const isSelected = device.device_id === deviceId;
+        row.innerHTML = `
+            <td>
+                <input type="radio" name="fmc_device" value="${escapeHtml(device.device_id)}"
+                       ${isSelected ? 'checked' : ''}
+                       onchange="selectFMCDevice('${escapeHtml(device.device_id)}', '${escapeHtml(device.name)}')">
+            </td>
+            <td>${escapeHtml(device.name)}</td>
+            <td>${escapeHtml(device.model)}</td>
+            <td><span class="status-badge ${device.health_status.toLowerCase()}">${escapeHtml(device.health_status)}</span></td>
+            <td>${escapeHtml(device.sw_version)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Handle FMC device selection
+ */
+function selectFMCDevice(id, name) {
+    deviceId = id;
+    deviceName = name;
+    document.getElementById('device_id').value = id;
+    document.getElementById('device_name').value = name;
+    showSelectedDevice(id, name);
+}
+
+/**
+ * Show selected device info
+ */
+function showSelectedDevice(id, name) {
+    const selectedInfo = document.getElementById('selectedDeviceInfo');
+    const selectedName = document.getElementById('selectedDeviceName');
+    if (selectedInfo && selectedName) {
+        selectedName.textContent = name;
+        selectedInfo.style.display = 'block';
+    }
 }
 
 /**
@@ -319,8 +498,14 @@ function discoverInterfaces() {
         return;
     }
 
+    // For Cisco FMC mode, require device selection
+    if (type === 'cisco_firepower' && managementMode === 'fmc' && !deviceId) {
+        showToast('Please select a device from FMC first', 'error');
+        return;
+    }
+
     // Show loading state
-    const btn = document.querySelector('.btn-discover');
+    const btn = document.querySelector('#interfaceConfigSection .btn-discover');
     const btnText = document.getElementById('discoverBtnText');
     const spinner = document.getElementById('discoverSpinner');
     const resultDiv = document.getElementById('discoverResult');
@@ -331,6 +516,25 @@ function discoverInterfaces() {
     resultDiv.className = 'discover-result';
     resultDiv.innerHTML = '';
 
+    // Build request body
+    const requestBody = {
+        host: host,
+        username: username,
+        password: password,
+        type: type,
+        verify_ssl: verify_ssl,
+        vdom: vdomValue,
+        csrf_token: csrfToken
+    };
+
+    // Add Cisco Firepower specific fields
+    if (type === 'cisco_firepower') {
+        requestBody.management_mode = managementMode;
+        if (managementMode === 'fmc') {
+            requestBody.device_id = deviceId;
+        }
+    }
+
     fetch('/admin/api/discover-interfaces', {
         method: 'POST',
         headers: {
@@ -338,15 +542,7 @@ function discoverInterfaces() {
             'X-CSRF-Token': csrfToken
         },
         credentials: 'include',
-        body: JSON.stringify({
-            host: host,
-            username: username,
-            password: password,
-            type: type,
-            verify_ssl: verify_ssl,
-            vdom: vdomValue,
-            csrf_token: csrfToken
-        })
+        body: JSON.stringify(requestBody)
     })
     .then(response => response.json())
     .then(data => {
@@ -553,6 +749,25 @@ function testConnection() {
     resultDiv.className = 'test-result';
     resultDiv.innerHTML = '';
 
+    // Build request body
+    const requestBody = {
+        host: host,
+        username: username,
+        password: password,
+        type: type,
+        verify_ssl: verify_ssl,
+        vdom: vdomValue,
+        csrf_token: csrfToken
+    };
+
+    // Add Cisco Firepower specific fields
+    if (type === 'cisco_firepower') {
+        requestBody.management_mode = managementMode;
+        if (managementMode === 'fmc' && deviceId) {
+            requestBody.device_id = deviceId;
+        }
+    }
+
     fetch('/admin/api/test-connection', {
         method: 'POST',
         headers: {
@@ -560,15 +775,7 @@ function testConnection() {
             'X-CSRF-Token': csrfToken
         },
         credentials: 'include',
-        body: JSON.stringify({
-            host: host,
-            username: username,
-            password: password,
-            type: type,
-            verify_ssl: verify_ssl,
-            vdom: vdomValue,
-            csrf_token: csrfToken
-        })
+        body: JSON.stringify(requestBody)
     })
     .then(response => response.json())
     .then(data => {
@@ -792,6 +999,12 @@ async function submitFormData(formData, autoDiscover, overrideName = null) {
     // Add vendor-specific fields
     if (firewallType === 'fortinet') {
         data.vdom = formData.get('vdom') || 'root';
+    } else if (firewallType === 'cisco_firepower') {
+        data.management_mode = managementMode;
+        if (managementMode === 'fmc') {
+            data.device_id = deviceId;
+            data.device_name = deviceName;
+        }
     }
 
     // Include interface_configs when not using auto-discover

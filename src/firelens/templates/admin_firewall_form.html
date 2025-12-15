@@ -172,6 +172,52 @@
                                placeholder="root">
                         <small>FortiGate Virtual Domain name (default: root)</small>
                     </div>
+                    <!-- Cisco Firepower fields -->
+                    <div id="ciscoFirepowerGroup" style="display: none;">
+                        <div class="form-group">
+                            <label for="management_mode">Management Mode <span class="required">*</span></label>
+                            <select id="management_mode" name="management_mode" onchange="onManagementModeChange()">
+                                <option value="fdm" {{ 'selected' if not firewall or firewall.management_mode == 'fdm' else '' }}>FDM (Local Device Management)</option>
+                                <option value="fmc" {{ 'selected' if firewall and firewall.management_mode == 'fmc' else '' }}>FMC (Firepower Management Center)</option>
+                            </select>
+                            <small>FDM: Direct device access | FMC: Centralized management for multiple devices</small>
+                        </div>
+                        <!-- FMC Device Selection (shown when FMC mode selected) -->
+                        <div id="fmcDeviceSection" style="display: none;">
+                            <div class="form-group">
+                                <label>Select Device to Monitor</label>
+                                <div class="fmc-device-controls">
+                                    <button type="button" class="btn btn-discover" onclick="discoverFMCDevices()">
+                                        <span id="discoverFMCBtnText">Discover Devices</span>
+                                        <span id="discoverFMCSpinner" class="spinner" style="display: none;"></span>
+                                    </button>
+                                </div>
+                                <div id="fmcDiscoverResult" class="discover-result"></div>
+                                <div id="fmcDeviceList" class="fmc-device-list" style="display: none;">
+                                    <table class="interface-table">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 50px;">Select</th>
+                                                <th>Device Name</th>
+                                                <th>Model</th>
+                                                <th>Status</th>
+                                                <th>Version</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="fmcDeviceTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <input type="hidden" id="device_id" name="device_id"
+                                       value="{{ firewall.device_id if firewall and firewall.device_id else '' }}">
+                                <input type="hidden" id="device_name" name="device_name"
+                                       value="{{ firewall.device_name if firewall and firewall.device_name else '' }}">
+                                <div id="selectedDeviceInfo" class="selected-device-info" style="display: none;">
+                                    <strong>Selected Device:</strong> <span id="selectedDeviceName"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="form-row">
                         <div class="form-group">
                             <div class="checkbox-group">
@@ -319,7 +365,10 @@ ha2{% endif %}</textarea>
             csrfToken: {{ csrf_token | tojson }},
             interfaceConfigs: {{ firewall.interface_configs | tojson if firewall and firewall.interface_configs else '[]' }},
             vendorType: {{ (firewall.type if firewall else 'palo_alto') | tojson }},
-            vdom: {{ (firewall.vdom if firewall and firewall.vdom else 'root') | tojson }}
+            vdom: {{ (firewall.vdom if firewall and firewall.vdom else 'root') | tojson }},
+            managementMode: {{ (firewall.management_mode if firewall and firewall.management_mode else 'fdm') | tojson }},
+            deviceId: {{ (firewall.device_id if firewall and firewall.device_id else '') | tojson }},
+            deviceName: {{ (firewall.device_name if firewall and firewall.device_name else '') | tojson }}
         };
     </script>
     <script src="/static/js/admin-firewall-form.js"></script>

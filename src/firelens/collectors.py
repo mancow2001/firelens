@@ -1020,10 +1020,25 @@ class EnhancedFirewallCollector:
         """Detect Cisco Firepower hardware/model information"""
         try:
             LOG.info(f"{self.name}: Detecting Cisco Firepower model and hardware info...")
-            # Cisco Firepower detection - placeholder for future implementation
-            self.model = "Cisco Firepower"
-            self.hardware_info = {"model": self.model}
-            LOG.info(f"{self.name}: Cisco Firepower hardware detection not yet implemented")
+            # Cisco Firepower clients have get_hardware_info() that returns HardwareInfo dataclass
+            if hasattr(self.client, "get_hardware_info"):
+                hw_info = self.client.get_hardware_info()
+                if hw_info:
+                    self.model = hw_info.model
+                    self.hardware_info = {
+                        "model": hw_info.model,
+                        "hostname": hw_info.hostname,
+                        "serial": hw_info.serial,
+                        "version": hw_info.sw_version,
+                    }
+                    # Include vendor-specific info if available
+                    if hw_info.vendor_specific:
+                        self.hardware_info.update(hw_info.vendor_specific)
+                    LOG.info(f"{self.name}: Cisco Firepower model detected: {self.model}")
+                else:
+                    LOG.warning(f"{self.name}: Could not get Cisco Firepower hardware info")
+            else:
+                LOG.info(f"{self.name}: Cisco Firepower hardware detection not available")
         except Exception as e:
             LOG.error(f"{self.name}: Error detecting Cisco Firepower hardware info: {e}")
 

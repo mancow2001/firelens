@@ -137,7 +137,7 @@ chmod 660 %{_sysconfdir}/firelens/config.yaml
 %dir %attr(755,firelens,firelens) %{_localstatedir}/log/firelens
 
 %changelog
-* Sat Dec 14 2024 FireLens Team <mancow2001@gmail.com> - 1.7.0-1
+* Sat Dec 14 2025 FireLens Team <mancow2001@gmail.com> - 1.7.0-1
 - Stable release: Full Fortinet FortiGate support
 - Vendor-agnostic database schema with dedicated metrics tables
 - Vendor-aware dashboard, detail pages, and CSV export
@@ -148,30 +148,30 @@ chmod 660 %{_sysconfdir}/firelens/config.yaml
 - Fix interface selection not preserving vendor metrics display
 - Reduce log noise for expected API method fallbacks
 
-* Sat Dec 14 2024 FireLens Team <mancow2001@gmail.com> - 1.6.18-1
+* Sat Dec 14 2025 FireLens Team <mancow2001@gmail.com> - 1.6.18-1
 - Fix config directory permissions for backup file creation
 - Change /etc/firelens from 750 to 770 so firelens user can create backups
 
-* Sat Dec 14 2024 FireLens Team <mancow2001@gmail.com> - 1.6.17-1
+* Sat Dec 14 2025 FireLens Team <mancow2001@gmail.com> - 1.6.17-1
 - Hide session utilization % for Fortinet on dashboard
 - Fortinet max_sessions is 24h peak, not actual capacity
 
-* Sat Dec 14 2024 FireLens Team <mancow2001@gmail.com> - 1.6.16-1
+* Sat Dec 14 2025 FireLens Team <mancow2001@gmail.com> - 1.6.16-1
 - Vendor-aware CSV export on firewall detail page
 - Palo Alto: Export Mgmt CPU, DP CPU (Mean/Max/P95), Packet Buffer
 - Fortinet: Export CPU, Memory, Setup Rate, NPU Sessions
 
-* Sat Dec 14 2024 FireLens Team <mancow2001@gmail.com> - 1.6.15-1
+* Sat Dec 14 2025 FireLens Team <mancow2001@gmail.com> - 1.6.15-1
 - Fix dashboard landing page to show vendor-specific metrics
 - Palo Alto: Show Mgmt CPU, DP CPU, Packet Buffer
 - Fortinet: Show CPU, Memory, Setup Rate
 - Remove obsolete throughput/pps from main display
 
-* Sat Dec 14 2024 FireLens Team <mancow2001@gmail.com> - 1.6.14-1
+* Sat Dec 14 2025 FireLens Team <mancow2001@gmail.com> - 1.6.14-1
 - Fix migration to add cpu_usage column to existing fortinet_metrics tables
 - Automatic schema migration on service restart
 
-* Sat Dec 14 2024 FireLens Team <mancow2001@gmail.com> - 1.6.13-1
+* Sat Dec 14 2025 FireLens Team <mancow2001@gmail.com> - 1.6.13-1
 - Schema v2: Move vendor-specific metrics to dedicated tables
 - Main metrics table now vendor-agnostic (timestamp, firewall_name only)
 - Palo Alto CPU/pbuf metrics now stored in palo_alto_metrics table
@@ -179,41 +179,41 @@ chmod 660 %{_sysconfdir}/firelens/config.yaml
 - Fix JavaScript to read CPU data from vendor-metrics endpoint
 - Fix CPU display bug (was showing memory instead of CPU)
 
-* Sat Dec 14 2024 FireLens Team <mancow2001@gmail.com> - 1.6.12-1
+* Sat Dec 14 2025 FireLens Team <mancow2001@gmail.com> - 1.6.12-1
 - Add cpu_usage column to fortinet_metrics table
 - Fix Fortinet CPU not being stored (was missing from schema)
 
-* Sat Dec 14 2024 FireLens Team <mancow2001@gmail.com> - 1.6.11-1
+* Sat Dec 14 2025 FireLens Team <mancow2001@gmail.com> - 1.6.11-1
 - Fix Fortinet memory_usage_percent not being collected
 - Add memory_usage_percent to metrics dict in EnhancedFirewallCollector
 
-* Fri Dec 13 2024 FireLens Team <mancow2001@gmail.com> - 1.6.10-1
+* Fri Dec 13 2025 FireLens Team <mancow2001@gmail.com> - 1.6.10-1
 - Fix JavaScript errors on Fortinet detail page
 - Add null checks for Palo Alto-only elements (pbufChart, cpuAggregation)
 
-* Fri Dec 13 2024 FireLens Team <mancow2001@gmail.com> - 1.6.9-1
+* Fri Dec 13 2025 FireLens Team <mancow2001@gmail.com> - 1.6.9-1
 - Vendor-aware Fortinet detail page display
 - Fix current values to show Fortinet-specific metrics (CPU, Memory, Setup Rate)
 - Fix CPU chart to display single CPU line for FortiGate (not Mgmt/DP split)
 - Make hover summary vendor-aware for Fortinet metrics
 
-* Fri Dec 13 2024 FireLens Team <mancow2001@gmail.com> - 1.6.8-1
+* Fri Dec 13 2025 FireLens Team <mancow2001@gmail.com> - 1.6.8-1
 - Fix Fortinet detail page blank data issues
 - Add /api/firewall/{name}/vendor-metrics endpoint for Fortinet metrics
 - Add JavaScript chart and summary for FortiGate Memory, Setup Rate, NPU Sessions
 - Fix session stats API to use /monitor/system/resource/usage endpoint
 
-* Fri Dec 13 2024 FireLens Team <mancow2001@gmail.com> - 1.6.5-1
+* Fri Dec 13 2025 FireLens Team <mancow2001@gmail.com> - 1.6.5-1
 - Fix Fortinet collector and session monitoring errors
 - Fix SessionStatistics -> SessionStats class name in interface_monitor.py
 - Fix vendor_metrics dict access for session_setup_rate and npu_sessions
 
-* Fri Dec 13 2024 FireLens Team <mancow2001@gmail.com> - 1.6.4-1
+* Fri Dec 13 2025 FireLens Team <mancow2001@gmail.com> - 1.6.4-1
 - Packaging version sync and Fortinet config validation fix
 - Fix config validation to only require API token for Fortinet firewalls
 - Update all packaging artifacts to match release version
 
-* Fri Dec 13 2024 FireLens Team <mancow2001@gmail.com> - 1.6.3-1
+* Fri Dec 13 2025 FireLens Team <mancow2001@gmail.com> - 1.6.3-1
 - Multi-vendor collector fixes and upgrade safety improvements
 - Full Fortinet FortiGate support with REST API integration
 - Vendor-aware InterfaceMonitor, collectors, and config validation
@@ -221,12 +221,12 @@ chmod 660 %{_sysconfdir}/firelens/config.yaml
 - Config save backup/restore error handling
 - Added docs/UPGRADING.md upgrade guide
 
-* Thu Dec 12 2024 FireLens Team <mancow2001@gmail.com> - 1.5.0-1
+* Thu Dec 12 2025 FireLens Team <mancow2001@gmail.com> - 1.5.0-1
 - Version stabilization release
 - Updated placeholder references with official project URLs
 - Consolidated versioning across all packaging artifacts
 
-* Wed Dec 11 2024 FireLens Team <mancow2001@gmail.com> - 1.0.0-1
+* Wed Dec 11 2025 FireLens Team <mancow2001@gmail.com> - 1.0.0-1
 - Initial RPM package release
 - Multi-vendor firewall monitoring (Palo Alto, Fortinet stub, Cisco stub)
 - Web dashboard with real-time metrics

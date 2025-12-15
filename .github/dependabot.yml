@@ -1,0 +1,54 @@
+version: 2
+  updates:
+    # Python dependencies (pip)
+    - package-ecosystem: "pip"
+      directory: "/"
+      schedule:
+        interval: "weekly"
+        day: "monday"
+      open-pull-requests-limit: 10
+      reviewers:
+        - "mancow2001"
+      labels:
+        - "dependencies"
+        - "python"
+      commit-message:
+        prefix: "chore(deps)"
+      groups:
+        # Group minor/patch updates to reduce PR noise
+        python-minor:
+          patterns:
+            - "*"
+          update-types:
+            - "minor"
+            - "patch"
+
+    # GitHub Actions
+    - package-ecosystem: "github-actions"
+      directory: "/"
+      schedule:
+        interval: "weekly"
+        day: "monday"
+      open-pull-requests-limit: 5
+      reviewers:
+        - "mancow2001"
+      labels:
+        - "dependencies"
+        - "github-actions"
+      commit-message:
+        prefix: "chore(ci)"
+
+    # Docker
+    - package-ecosystem: "docker"
+      directory: "/docker"
+      schedule:
+        interval: "weekly"
+        day: "monday"
+      open-pull-requests-limit: 5
+      reviewers:
+        - "mancow2001"
+      labels:
+        - "dependencies"
+        - "docker"
+      commit-message:
+        prefix: "chore(docker)"

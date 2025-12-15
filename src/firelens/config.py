@@ -172,6 +172,11 @@ class EnhancedFirewallConfig:
     dp_aggregation: str = "mean"  # mean, max, p95
     vdom: str = "root"  # FortiGate VDOM (Virtual Domain), defaults to "root"
 
+    # Cisco Firepower-specific configuration
+    management_mode: str = "fdm"  # Cisco Firepower: 'fdm' (local) or 'fmc' (centralized)
+    device_id: str = None  # FMC mode: UUID of the managed device to monitor
+    device_name: str = None  # FMC mode: Display name of the managed device
+
     # NEW: Interface monitoring configuration
     interface_monitoring: bool = True
 

@@ -788,7 +788,9 @@ class EnhancedMetricsDatabase:
                     except Exception:
                         pass  # Table may not exist
                     try:
-                        conn.execute("DELETE FROM session_stats WHERE firewall_name = ?", (name,))
+                        conn.execute(
+                            "DELETE FROM session_statistics WHERE firewall_name = ?", (name,)
+                        )
                     except Exception:
                         pass  # Table may not exist
                     LOG.info(f"Deleted all metrics for firewall: {name}")

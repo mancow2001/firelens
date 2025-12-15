@@ -694,11 +694,11 @@ async def admin_api_test_connection(request: Request):
     elif vendor_type == "fortinet":
         result = await _test_fortinet_connection(config_manager, host, password, verify_ssl, vdom)
     elif vendor_type == "cisco_firepower":
-        result = {
-            "success": False,
-            "message": "Cisco Firepower connection testing not yet implemented",
-            "details": {},
-        }
+        management_mode = data.get("management_mode", "fdm")
+        device_id = data.get("device_id")
+        result = await _test_cisco_connection(
+            config_manager, host, username, password, verify_ssl, management_mode, device_id
+        )
     else:
         result = {"success": False, "message": f"Unknown vendor type: {vendor_type}", "details": {}}
 
@@ -758,11 +758,11 @@ async def admin_api_discover_interfaces(request: Request):
             config_manager, host, password, verify_ssl, vdom
         )
     elif vendor_type == "cisco_firepower":
-        result = {
-            "success": False,
-            "message": "Cisco Firepower interface discovery not yet implemented",
-            "interfaces": [],
-        }
+        management_mode = data.get("management_mode", "fdm")
+        device_id = data.get("device_id")
+        result = await _discover_cisco_interfaces(
+            config_manager, host, username, password, verify_ssl, management_mode, device_id
+        )
     else:
         result = {
             "success": False,
@@ -772,6 +772,45 @@ async def admin_api_discover_interfaces(request: Request):
 
     LOG.info(
         f"Admin {user} discovered interfaces from {host}: {len(result.get('interfaces', []))} found"
+    )
+    return JSONResponse(result)
+
+
+@router.post("/api/discover-fmc-devices")
+async def admin_api_discover_fmc_devices(request: Request):
+    """API: Discover FTD devices managed by a Firepower Management Center"""
+    user = get_admin_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    config_manager = request.app.state.config_manager
+
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    # Validate CSRF token
+    csrf_token = data.get("csrf_token") or request.headers.get("X-CSRF-Token")
+    if not validate_csrf(request, csrf_token):
+        raise HTTPException(status_code=403, detail="Invalid or missing CSRF token")
+
+    required = ["host", "username", "password"]
+    missing = [f for f in required if not data.get(f)]
+    if missing:
+        raise HTTPException(
+            status_code=400, detail=f"Missing required fields: {', '.join(missing)}"
+        )
+
+    host = data["host"]
+    username = data["username"]
+    password = data["password"]
+    verify_ssl = data.get("verify_ssl", True)
+
+    result = await _discover_fmc_devices(config_manager, host, username, password, verify_ssl)
+
+    LOG.info(
+        f"Admin {user} discovered FMC devices from {host}: {len(result.get('devices', []))} found"
     )
     return JSONResponse(result)
 
@@ -1087,6 +1126,226 @@ async def _discover_fortinet_interfaces(
         result["success"] = True
         result["message"] = f"Found {len(interfaces)} interfaces"
         result["interfaces"] = interfaces
+
+        client.close()
+        return result
+
+    except SSLError as e:
+        result["message"] = f"SSL/TLS error: {str(e)}. Try disabling SSL verification."
+        return result
+    except ConnectionError:
+        result["message"] = f"Connection failed: Unable to reach {host}"
+        return result
+    except Timeout:
+        result["message"] = f"Connection timed out: {host} did not respond"
+        return result
+    except Exception as e:
+        result["message"] = f"Unexpected error: {str(e)}"
+        return result
+
+
+async def _test_cisco_connection(
+    config_manager,
+    host: str,
+    username: str,
+    password: str,
+    verify_ssl: bool,
+    management_mode: str = "fdm",
+    device_id: str = None,
+) -> dict:
+    """Test Cisco Firepower connection (FDM or FMC)"""
+    from ...vendors.cisco_firepower import CiscoFirepowerFDMClient, CiscoFirepowerFMCClient
+
+    result = {"success": False, "message": "", "details": {}}
+
+    ssl_verify = _get_ssl_verify(config_manager, verify_ssl)
+
+    try:
+        if management_mode == "fmc":
+            client = CiscoFirepowerFMCClient(
+                host=host,
+                verify_ssl=ssl_verify if ssl_verify is True else False,
+                device_id=device_id,
+            )
+        else:
+            client = CiscoFirepowerFDMClient(
+                host=host, verify_ssl=ssl_verify if ssl_verify is True else False
+            )
+
+        # Authenticate
+        if not client.authenticate(username, password):
+            result["message"] = "Authentication failed: Invalid credentials or unable to connect"
+            return result
+
+        # Get hardware info
+        hw_info = client.get_hardware_info()
+
+        if hw_info:
+            result["details"] = {
+                "hostname": hw_info.hostname,
+                "model": hw_info.model,
+                "serial": hw_info.serial,
+                "sw_version": hw_info.sw_version,
+                "management_mode": management_mode,
+            }
+
+        result["success"] = True
+        result["message"] = "Connection successful"
+
+        client.close()
+        return result
+
+    except SSLError as e:
+        result["message"] = (
+            f"SSL/TLS error: {str(e)}. Try disabling SSL verification for self-signed certificates."
+        )
+        return result
+    except ConnectionError:
+        result["message"] = (
+            f"Connection failed: Unable to reach {host}. Check the URL and network connectivity."
+        )
+        return result
+    except Timeout:
+        result["message"] = f"Connection timed out: {host} did not respond within timeout"
+        return result
+    except RequestException as e:
+        result["message"] = f"Request failed: {str(e)}"
+        return result
+    except Exception as e:
+        result["message"] = f"Unexpected error: {str(e)}"
+        return result
+
+
+async def _discover_cisco_interfaces(
+    config_manager,
+    host: str,
+    username: str,
+    password: str,
+    verify_ssl: bool,
+    management_mode: str = "fdm",
+    device_id: str = None,
+) -> dict:
+    """Discover interfaces from a Cisco Firepower device (FDM or FMC)"""
+    from ...vendors.cisco_firepower import CiscoFirepowerFDMClient, CiscoFirepowerFMCClient
+
+    result = {"success": False, "message": "", "interfaces": []}
+
+    ssl_verify = _get_ssl_verify(config_manager, verify_ssl)
+
+    try:
+        if management_mode == "fmc":
+            if not device_id:
+                result["message"] = "FMC mode requires a device_id to discover interfaces"
+                return result
+            client = CiscoFirepowerFMCClient(
+                host=host,
+                verify_ssl=ssl_verify if ssl_verify is True else False,
+                device_id=device_id,
+            )
+        else:
+            client = CiscoFirepowerFDMClient(
+                host=host, verify_ssl=ssl_verify if ssl_verify is True else False
+            )
+
+        # Authenticate
+        if not client.authenticate(username, password):
+            result["message"] = "Authentication failed: Invalid credentials"
+            return result
+
+        # Discover interfaces
+        interface_names = client.discover_interfaces()
+
+        if not interface_names:
+            result["success"] = True
+            result["message"] = "Connected but no interfaces found"
+            client.close()
+            return result
+
+        # Generate display names and create interface list
+        from ...config import EnhancedFirewallConfig
+
+        temp_config = EnhancedFirewallConfig(
+            name="temp", host=host, username=username, password=password, type="cisco_firepower"
+        )
+
+        interfaces = []
+        for iface_name in sorted(interface_names):
+            display_name = temp_config._generate_display_name(iface_name)
+            interfaces.append(
+                {
+                    "name": iface_name,
+                    "display_name": display_name,
+                    "enabled": True,
+                    "description": "",
+                }
+            )
+
+        result["success"] = True
+        result["message"] = f"Found {len(interfaces)} interfaces"
+        result["interfaces"] = interfaces
+
+        client.close()
+        return result
+
+    except SSLError as e:
+        result["message"] = f"SSL/TLS error: {str(e)}. Try disabling SSL verification."
+        return result
+    except ConnectionError:
+        result["message"] = f"Connection failed: Unable to reach {host}"
+        return result
+    except Timeout:
+        result["message"] = f"Connection timed out: {host} did not respond"
+        return result
+    except Exception as e:
+        result["message"] = f"Unexpected error: {str(e)}"
+        return result
+
+
+async def _discover_fmc_devices(
+    config_manager, host: str, username: str, password: str, verify_ssl: bool
+) -> dict:
+    """Discover FTD devices managed by a Firepower Management Center"""
+    from ...vendors.cisco_firepower import CiscoFirepowerFMCClient
+
+    result = {"success": False, "message": "", "devices": []}
+
+    ssl_verify = _get_ssl_verify(config_manager, verify_ssl)
+
+    try:
+        client = CiscoFirepowerFMCClient(
+            host=host, verify_ssl=ssl_verify if ssl_verify is True else False
+        )
+
+        # Authenticate
+        if not client.authenticate(username, password):
+            result["message"] = "Authentication failed: Invalid credentials"
+            return result
+
+        # Discover managed devices
+        managed_devices = client.discover_managed_devices()
+
+        if not managed_devices:
+            result["success"] = True
+            result["message"] = "Connected but no managed devices found"
+            client.close()
+            return result
+
+        devices = []
+        for device in managed_devices:
+            devices.append(
+                {
+                    "device_id": device.device_id,
+                    "name": device.name,
+                    "model": device.model,
+                    "health_status": device.health_status,
+                    "sw_version": device.sw_version,
+                    "host_name": device.host_name,
+                }
+            )
+
+        result["success"] = True
+        result["message"] = f"Found {len(devices)} managed devices"
+        result["devices"] = devices
 
         client.close()
         return result

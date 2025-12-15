@@ -1,13 +1,17 @@
 # <img width="512" height="512" alt="firelens-transparent-darkmode" src="https://github.com/user-attachments/assets/43f19d23-bd77-4cc7-93ee-bda89da918a1" />
 A comprehensive real-time monitoring solution for **multiple firewall vendors** including Palo Alto Networks, Fortinet FortiGate, and Cisco Firepower. Features persistent data storage, enhanced web dashboard, intelligent timezone handling, and **per-second session sampling for accurate throughput metrics**.
 
-## Version 1.0.30 (Initial Stable Release)
+## Version 1.0.40
 
 ### **Core Features**
 - **Multi-Vendor Firewall Support**: Monitor firewalls from multiple vendors
   - **Palo Alto Networks**: Full support (PAN-OS API)
   - **Fortinet FortiGate**: Full support (REST API with token authentication)
-  - **Cisco Firepower**: Placeholder (coming soon)
+  - **Cisco Firepower**: Full support (FDM and FMC REST APIs)
+    - FDM (Firepower Device Manager) - Local management for single devices
+    - FMC (Firepower Management Center) - Centralized management for multi-device deployments
+    - OAuth2 token authentication (FDM) and HTTP Basic Auth (FMC)
+    - Device discovery for FMC-managed devices
   - Vendor-specific admin forms with dynamic field visibility
   - Vendor-specific metrics dashboards and charts
   - VDOM support for FortiGate multi-tenant deployments
@@ -141,7 +145,7 @@ FireLens/
 │   │   ├── base.py              # Abstract base classes
 │   │   ├── palo_alto.py         # Palo Alto Networks adapter (full)
 │   │   ├── fortinet.py          # Fortinet FortiGate adapter (full)
-│   │   └── cisco_firepower.py   # Cisco Firepower adapter (placeholder)
+│   │   └── cisco_firepower.py   # Cisco Firepower adapter (FDM + FMC)
 │   │
 │   ├── templates/               # Jinja2 HTML templates
 │   │   ├── dashboard.html       # Main dashboard
@@ -368,6 +372,33 @@ firewalls:
     password: "your_api_token"  # FortiGate REST API token
     type: "fortinet"
     vdom: "root"                # FortiGate VDOM (default: root)
+    verify_ssl: false
+    enabled: true
+    poll_interval: 60
+    interface_monitoring: true
+    auto_discover_interfaces: true
+
+  # Cisco Firepower with FDM (local management)
+  firepower_fdm:
+    host: "https://10.100.192.50"
+    username: "admin"
+    password: "FirepowerPassword"
+    type: "cisco_firepower"
+    management_mode: "fdm"      # FDM for local device management
+    verify_ssl: false
+    enabled: true
+    poll_interval: 60
+    interface_monitoring: true
+    auto_discover_interfaces: true
+
+  # Cisco Firepower with FMC (centralized management)
+  firepower_fmc:
+    host: "https://fmc.example.com"
+    username: "api_user"
+    password: "ApiPassword"
+    type: "cisco_firepower"
+    management_mode: "fmc"      # FMC for centralized management
+    device_id: "abc123-device-uuid"  # UUID of managed device (discovered via admin UI)
     verify_ssl: false
     enabled: true
     poll_interval: 60

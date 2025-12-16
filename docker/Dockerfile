@@ -2,7 +2,7 @@
 # Produces a minimal production image
 
 # Stage 1: Build stage
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /build
 
@@ -29,7 +29,7 @@ COPY src/ ./src/
 RUN pip wheel --no-cache-dir --wheel-dir /wheels .
 
 # Stage 2: Production image
-FROM python:3.11-slim AS production
+FROM python:3.14-slim AS production
 
 # Labels
 LABEL org.opencontainers.image.title="FireLens Monitor"

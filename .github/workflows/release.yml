@@ -86,7 +86,7 @@ jobs:
           cp ../*.deb .
 
       - name: Upload .deb artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: deb-package
           path: "*.deb"
@@ -126,7 +126,7 @@ jobs:
           find ~/rpmbuild/RPMS -name "*.rpm" -exec cp {} . \;
 
       - name: Upload .rpm artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rpm-package
           path: "*.rpm"

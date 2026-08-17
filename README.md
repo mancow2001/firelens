@@ -1,7 +1,7 @@
 # <img width="512" height="512" alt="firelens-transparent-darkmode" src="https://github.com/user-attachments/assets/43f19d23-bd77-4cc7-93ee-bda89da918a1" />
 A comprehensive real-time monitoring solution for **multiple firewall vendors** including Palo Alto Networks, Fortinet FortiGate, and Cisco Firepower. Features persistent data storage, enhanced web dashboard, intelligent timezone handling, and **per-second session sampling for accurate throughput metrics**.
 
-## Version 1.0.40
+## Version 1.1.0
 
 ### **Core Features**
 - **Multi-Vendor Firewall Support**: Monitor firewalls from multiple vendors

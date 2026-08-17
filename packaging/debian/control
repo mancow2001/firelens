@@ -16,7 +16,7 @@ Package: firelens-monitor
 Architecture: all
 Depends: ${misc:Depends},
          python3 (>= 3.9),
-         libxmlsec1-openssl
+         libxmlsec1-openssl | libxmlsec1-openssl1
 Description: Multi-vendor firewall monitoring solution
  FireLens Monitor collects real-time CPU, throughput, packet buffer,
  interface bandwidth, and session statistics from multiple firewalls

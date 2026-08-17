@@ -230,6 +230,8 @@ firelens --config config.yaml
 ```bash
 # Ubuntu/Debian
 sudo apt-get install libxmlsec1-dev libxmlsec1-openssl pkg-config
+# Note: on Ubuntu 26.04+ the OpenSSL engine package was renamed to
+# libxmlsec1-openssl1 — install that instead if the above is not found
 
 # RHEL/CentOS/Fedora
 sudo dnf install xmlsec1-openssl-devel pkg-config

@@ -1,6 +1,7 @@
-firelens-monitor (1.1.0-1) stable; urgency=medium
+firelens-monitor (1.1.1-1) stable; urgency=medium
 
-  * Release v1.1.0
+  * Release v1.1.1 (v1.1.0 tag skipped: version was previously
+    uploaded to PyPI and deleted, so the name cannot be reused)
   * Handle libxmlsec1-openssl package rename on Ubuntu 26.04
     (accept libxmlsec1-openssl1 as an alternative dependency)
   * Reformat codebase with black 26.x stable style

@@ -23,7 +23,6 @@ from cryptography.hazmat.backends import default_backend
 
 from firelens.cert_manager import CertificateManager, CertificateInfo, AddCertificateResult
 
-
 # =============================================================================
 # Test Fixtures
 # =============================================================================

@@ -1,3 +1,4 @@
+__pycache__/
 /src/firelens/__pycache__
 /src/firelens/web_dashboard/__pycache__
 /src/firelens/web_dashboard/routes/__pycache__

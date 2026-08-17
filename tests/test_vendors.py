@@ -3,6 +3,7 @@
 Unit tests for vendor abstraction layer
 Tests vendor registry, adapters, and client interfaces
 """
+
 import unittest
 from unittest.mock import Mock, patch, MagicMock
 

@@ -3,6 +3,7 @@
 Unit tests for collector performance and memory fixes
 Tests queue limits and collector cleanup
 """
+
 import unittest
 from queue import Queue, Full, Empty
 from unittest.mock import Mock, patch, MagicMock

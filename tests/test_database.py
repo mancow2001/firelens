@@ -3,6 +3,7 @@
 Unit tests for database performance optimizations
 Tests connection pooling, batch queries, and index creation
 """
+
 import unittest
 import tempfile
 import sqlite3

@@ -62,9 +62,9 @@ async def admin_dashboard(request: Request):
     from ...config import SUPPORTED_VENDOR_TYPES
 
     return templates.TemplateResponse(
+        request,
         "admin_dashboard.html",
         {
-            "request": request,
             "user": user,
             "firewalls": firewalls,
             "vendor_types": SUPPORTED_VENDOR_TYPES,
@@ -87,9 +87,9 @@ async def admin_add_firewall_page(request: Request):
     from ...config import SUPPORTED_VENDOR_TYPES
 
     return templates.TemplateResponse(
+        request,
         "admin_firewall_form.html",
         {
-            "request": request,
             "user": user,
             "firewall": None,
             "vendor_types": SUPPORTED_VENDOR_TYPES,
@@ -132,9 +132,9 @@ async def admin_edit_firewall_page(request: Request, name: str):
             )
 
     return templates.TemplateResponse(
+        request,
         "admin_firewall_form.html",
         {
-            "request": request,
             "user": user,
             "firewall": {
                 "name": firewall.name,

@@ -50,8 +50,9 @@ async def saml_login(request: Request):
     except Exception as e:
         LOG.exception(f"SAML login initiation error: {e}")
         return templates.TemplateResponse(
+            request,
             "admin_saml_error.html",
-            {"request": request, "error": f"Failed to initiate SAML login: {str(e)}"},
+            {"error": f"Failed to initiate SAML login: {str(e)}"},
             status_code=500,
         )
 
@@ -102,16 +103,18 @@ async def saml_acs(request: Request):
         else:
             LOG.warning(f"SAML authentication failed: {error}")
             return templates.TemplateResponse(
+                request,
                 "admin_saml_error.html",
-                {"request": request, "error": error or "Authentication failed"},
+                {"error": error or "Authentication failed"},
                 status_code=401,
             )
 
     except Exception as e:
         LOG.exception(f"SAML ACS error: {e}")
         return templates.TemplateResponse(
+            request,
             "admin_saml_error.html",
-            {"request": request, "error": f"SAML processing error: {str(e)}"},
+            {"error": f"SAML processing error: {str(e)}"},
             status_code=500,
         )
 
@@ -238,9 +241,9 @@ async def admin_saml_page(request: Request):
                 setattr(self, k, v)
 
     return templates.TemplateResponse(
+        request,
         "admin_saml.html",
         {
-            "request": request,
             "user": user,
             "config": ConfigObj(config_dict),
             "saml_enabled": saml_enabled,

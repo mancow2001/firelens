@@ -1,3 +1,12 @@
+firelens-monitor (1.1.2-1) stable; urgency=medium
+
+  * Release v1.1.2
+  * Build .deb per Ubuntu release (22.04/24.04/26.04) so the bundled
+    venv matches the target system Python; fixes ModuleNotFoundError
+    when installing on Ubuntu 26.04
+
+ -- FireLens Team <mancow2001@gmail.com>  Mon, 17 Aug 2026 18:05:00 -0400
+
 firelens-monitor (1.1.1-1) stable; urgency=medium
 
   * Release v1.1.1 (v1.1.0 tag skipped: version was previously

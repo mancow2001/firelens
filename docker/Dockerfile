@@ -34,7 +34,7 @@ FROM python:3.14-slim AS production
 # Labels
 LABEL org.opencontainers.image.title="FireLens Monitor"
 LABEL org.opencontainers.image.description="Multi-vendor firewall monitoring solution"
-LABEL org.opencontainers.image.version="1.1.2"
+LABEL org.opencontainers.image.version="1.1.3"
 LABEL org.opencontainers.image.source="https://github.com/mancow2001/FireLens"
 LABEL org.opencontainers.image.licenses="MIT"
 

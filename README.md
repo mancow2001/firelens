@@ -585,11 +585,12 @@ docker-compose up -d
 ```
   ### Via DEB Package (Debian/Ubuntu)
   ```bash
-  # 1. Download the latest .deb from GitHub Releases
-  wget https://github.com/mancow2001/FireLens/releases/latest/download/firelens-monitor_<version>_all.deb
+  # 1. Download the .deb matching your Ubuntu release from GitHub Releases
+  #    (the package bundles a Python venv, so it is built per Ubuntu version)
+  wget https://github.com/mancow2001/FireLens/releases/latest/download/firelens-monitor_<version>_ubuntu26.04_all.deb
 
   # 2. Install the package
-  sudo apt install ./firelens-monitor_<version>_all.deb
+  sudo apt install ./firelens-monitor_<version>_ubuntu26.04_all.deb
 
   # 3. Edit configuration
   sudo nano /etc/firelens/config.yaml

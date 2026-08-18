@@ -56,9 +56,9 @@ async def admin_login_page(request: Request, error: Optional[str] = None):
     password_reset_required = admin_config.needs_password_reset()
 
     return templates.TemplateResponse(
+        request,
         "admin_login.html",
         {
-            "request": request,
             "error": error,
             "saml_enabled": saml_available,
             "password_reset_required": password_reset_required,
@@ -87,9 +87,9 @@ async def admin_login_submit(
     if admin_config.needs_password_reset():
         LOG.info("Password reset required - redirecting to setup")
         return templates.TemplateResponse(
+            request,
             "admin_login.html",
             {
-                "request": request,
                 "error": "Initial password setup required. Please set a new password.",
                 "password_reset_required": True,
                 "saml_enabled": saml_available,
@@ -118,9 +118,9 @@ async def admin_login_submit(
     else:
         LOG.warning(f"Failed admin login attempt for user: {username}")
         return templates.TemplateResponse(
+            request,
             "admin_login.html",
             {
-                "request": request,
                 "error": "Invalid username or password",
                 "saml_enabled": saml_available,
             },
@@ -200,9 +200,9 @@ async def admin_setup_password(
     # Validate passwords match
     if new_password != confirm_password:
         return templates.TemplateResponse(
+            request,
             "admin_login.html",
             {
-                "request": request,
                 "error": "Passwords do not match",
                 "password_reset_required": True,
                 "saml_enabled": False,
@@ -214,9 +214,9 @@ async def admin_setup_password(
     is_valid, message = validate_password_complexity(new_password)
     if not is_valid:
         return templates.TemplateResponse(
+            request,
             "admin_login.html",
             {
-                "request": request,
                 "error": message,
                 "password_reset_required": True,
                 "saml_enabled": False,
@@ -270,9 +270,9 @@ async def admin_password_page(request: Request):
     # SAML users cannot change password (managed by IdP)
     if auth_method == "saml":
         return templates.TemplateResponse(
+            request,
             "admin_password.html",
             {
-                "request": request,
                 "user": user,
                 "auth_method": auth_method,
                 "saml_user": True,
@@ -282,9 +282,9 @@ async def admin_password_page(request: Request):
         )
 
     return templates.TemplateResponse(
+        request,
         "admin_password.html",
         {
-            "request": request,
             "user": user,
             "auth_method": auth_method,
             "saml_user": False,

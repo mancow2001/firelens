@@ -256,9 +256,9 @@ async def enhanced_dashboard(request: Request):
             uptime_hours = int((datetime.now(timezone.utc) - earliest).total_seconds() / 3600)
 
         response = templates.TemplateResponse(
+            request,
             "dashboard.html",
             {
-                "request": request,
                 "firewalls": firewalls,
                 "database_stats": database_stats,
                 "uptime_hours": uptime_hours,
@@ -362,9 +362,9 @@ async def enhanced_firewall_detail(request: Request, firewall_name: str):
         # Note: Default time range (last 6 hours) is calculated client-side in JavaScript
         # to use the user's local timezone instead of server time
         return templates.TemplateResponse(
+            request,
             "firewall_detail.html",
             {
-                "request": request,
                 "firewall_name": firewall_name,
                 "firewall_host": firewall_config.host,
                 "firewall_model": firewall_hw_info.get("model", ""),

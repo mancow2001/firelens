@@ -37,9 +37,9 @@ async def admin_certificates_page(request: Request):
     stats = cert_manager.get_certificate_stats()
 
     return templates.TemplateResponse(
+        request,
         "admin_certificates.html",
         {
-            "request": request,
             "user": user,
             "certificates": certificates,
             "stats": stats,

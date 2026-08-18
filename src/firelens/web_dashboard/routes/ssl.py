@@ -46,9 +46,9 @@ async def admin_ssl_page(request: Request):
         cert_info = ssl_manager.get_certificate_info()
 
     return templates.TemplateResponse(
+        request,
         "admin_ssl.html",
         {
-            "request": request,
             "user": user,
             "ssl_enabled": ssl_config.enabled if ssl_config else False,
             "https_port": ssl_config.https_port if ssl_config else 8443,

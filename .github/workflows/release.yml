@@ -12,7 +12,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v6
         with:
@@ -39,7 +39,7 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -78,7 +78,7 @@ jobs:
         ubuntu: ['22.04', '24.04', '26.04']
     container: ubuntu:${{ matrix.ubuntu }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install build tools
         run: |
@@ -109,7 +109,7 @@ jobs:
     container: fedora:latest
     needs: pypi
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install build tools
         run: |
@@ -152,7 +152,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Download deb packages
         uses: actions/download-artifact@v8

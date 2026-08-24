@@ -38,7 +38,7 @@ jobs:
             type=sha,prefix=
 
       - name: Build and push dev image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
